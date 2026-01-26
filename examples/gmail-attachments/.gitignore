@@ -1,0 +1,8 @@
+# OAuth2 token
+token.json
+
+# Downloaded attachments
+attachments/
+
+# Binary
+gmail-attachments
