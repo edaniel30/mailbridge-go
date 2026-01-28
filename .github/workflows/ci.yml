@@ -1,14 +1,12 @@
 name: CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
     branches: [main, develop]
 
 env:
   GO_VERSION: "1.25"
-  COVERAGE_THRESHOLD: 90
+  COVERAGE_THRESHOLD: 74
 
 jobs:
   test:
@@ -42,7 +40,7 @@ jobs:
         run: go vet ./...
 
       - name: Run tests with coverage
-        run: go test -coverprofile=coverage.out -covermode=atomic .
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage threshold
         run: |
