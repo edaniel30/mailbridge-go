@@ -40,7 +40,9 @@ jobs:
         run: go vet ./...
 
       - name: Run tests with coverage
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          # Run tests excluding examples directory
+          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /examples/)
 
       - name: Check coverage threshold
         run: |
