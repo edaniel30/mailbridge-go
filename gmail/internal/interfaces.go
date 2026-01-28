@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 
-	"golang.org/x/oauth2"
 	"google.golang.org/api/gmail/v1"
 )
 
@@ -16,6 +15,9 @@ type GmailService interface {
 type UsersService interface {
 	GetMessagesService() MessagesService
 	GetLabelsService() LabelsService
+	Watch(userID string, req *gmail.WatchRequest) UsersWatchCall
+	Stop(userID string) UsersStopCall
+	GetHistory(userID string) UsersHistoryListCall
 }
 
 // MessagesService is an interface for gmail messages operations
@@ -24,6 +26,10 @@ type MessagesService interface {
 	Get(userID, messageID string) MessagesGetCall
 	Modify(userID, messageID string, req *gmail.ModifyMessageRequest) MessagesModifyCall
 	GetAttachment(userID, messageID, attachmentID string) MessagesAttachmentGetCall
+	Send(userID string, message *gmail.Message) MessagesSendCall
+	Trash(userID, messageID string) MessagesTrashCall
+	Untrash(userID, messageID string) MessagesUntrashCall
+	Delete(userID, messageID string) MessagesDeleteCall
 }
 
 // LabelsService is an interface for gmail labels operations
@@ -87,10 +93,49 @@ type LabelsDeleteCall interface {
 	Do() error
 }
 
-// OAuth2Config is an interface for oauth2.Config operations
-type OAuth2Config interface {
-	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
-	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
-	Client(ctx context.Context, token *oauth2.Token) oauth2.TokenSource
-	TokenSource(ctx context.Context, token *oauth2.Token) oauth2.TokenSource
+// MessagesSendCall is an interface for messages send API calls
+type MessagesSendCall interface {
+	Context(ctx context.Context) MessagesSendCall
+	Do() (*gmail.Message, error)
+}
+
+// MessagesTrashCall is an interface for messages trash API calls
+type MessagesTrashCall interface {
+	Context(ctx context.Context) MessagesTrashCall
+	Do() (*gmail.Message, error)
+}
+
+// MessagesUntrashCall is an interface for messages untrash API calls
+type MessagesUntrashCall interface {
+	Context(ctx context.Context) MessagesUntrashCall
+	Do() (*gmail.Message, error)
+}
+
+// MessagesDeleteCall is an interface for messages delete API calls
+type MessagesDeleteCall interface {
+	Context(ctx context.Context) MessagesDeleteCall
+	Do() error
+}
+
+// UsersWatchCall is an interface for users watch API calls
+type UsersWatchCall interface {
+	Context(ctx context.Context) UsersWatchCall
+	Do() (*gmail.WatchResponse, error)
+}
+
+// UsersStopCall is an interface for users stop API calls
+type UsersStopCall interface {
+	Context(ctx context.Context) UsersStopCall
+	Do() error
+}
+
+// UsersHistoryListCall is an interface for users history list API calls
+type UsersHistoryListCall interface {
+	MaxResults(maxResults int64) UsersHistoryListCall
+	PageToken(token string) UsersHistoryListCall
+	LabelId(labelId string) UsersHistoryListCall
+	StartHistoryId(historyId uint64) UsersHistoryListCall
+	HistoryTypes(types ...string) UsersHistoryListCall
+	Context(ctx context.Context) UsersHistoryListCall
+	Do() (*gmail.ListHistoryResponse, error)
 }

@@ -1,4 +1,4 @@
-package gmail
+package messages
 
 import (
 	"testing"
@@ -375,8 +375,7 @@ func TestConvertMessage(t *testing.T) {
 		},
 	}
 
-	client := &Client{}
-	email := client.convertMessage(msg)
+	email := convertMessage(msg)
 
 	require.NotNil(t, email)
 	assert.Equal(t, "msg-123", email.ID)

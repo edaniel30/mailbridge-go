@@ -7,6 +7,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// newTestConfig creates a test configuration with standard test values.
+// Use this instead of manually creating Config in every test.
+func newTestConfig() *Config {
+	return &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+		RedirectURL:  "http://localhost",
+		Scopes:       []string{"test-scope"},
+	}
+}
+
+// newTestClient creates a test client with standard configuration.
+// Returns an initialized but not connected client.
+func newTestClient(t *testing.T) *Client {
+	t.Helper()
+	client, err := New(newTestConfig())
+	require.NoError(t, err)
+	return client
+}
+
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string

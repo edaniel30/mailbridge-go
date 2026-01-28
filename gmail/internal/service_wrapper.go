@@ -33,6 +33,18 @@ func (r *realUsersService) GetLabelsService() LabelsService {
 	return &realLabelsService{labels: r.users.Labels}
 }
 
+func (r *realUsersService) Watch(userID string, req *gmail.WatchRequest) UsersWatchCall {
+	return &realUsersWatchCall{call: r.users.Watch(userID, req)}
+}
+
+func (r *realUsersService) Stop(userID string) UsersStopCall {
+	return &realUsersStopCall{call: r.users.Stop(userID)}
+}
+
+func (r *realUsersService) GetHistory(userID string) UsersHistoryListCall {
+	return &realUsersHistoryListCall{call: r.users.History.List(userID)}
+}
+
 // realMessagesService wraps gmail.MessagesService
 type realMessagesService struct {
 	messages *gmail.UsersMessagesService
@@ -52,6 +64,22 @@ func (r *realMessagesService) Modify(userID, messageID string, req *gmail.Modify
 
 func (r *realMessagesService) GetAttachment(userID, messageID, attachmentID string) MessagesAttachmentGetCall {
 	return &realMessagesAttachmentGetCall{call: r.messages.Attachments.Get(userID, messageID, attachmentID)}
+}
+
+func (r *realMessagesService) Send(userID string, message *gmail.Message) MessagesSendCall {
+	return &realMessagesSendCall{call: r.messages.Send(userID, message)}
+}
+
+func (r *realMessagesService) Trash(userID, messageID string) MessagesTrashCall {
+	return &realMessagesTrashCall{call: r.messages.Trash(userID, messageID)}
+}
+
+func (r *realMessagesService) Untrash(userID, messageID string) MessagesUntrashCall {
+	return &realMessagesUntrashCall{call: r.messages.Untrash(userID, messageID)}
+}
+
+func (r *realMessagesService) Delete(userID, messageID string) MessagesDeleteCall {
+	return &realMessagesDeleteCall{call: r.messages.Delete(userID, messageID)}
 }
 
 // realLabelsService wraps gmail.LabelsService
@@ -202,5 +230,121 @@ func (r *realLabelsDeleteCall) Context(ctx context.Context) LabelsDeleteCall {
 }
 
 func (r *realLabelsDeleteCall) Do() error {
+	return r.call.Do()
+}
+
+type realMessagesSendCall struct {
+	call *gmail.UsersMessagesSendCall
+}
+
+func (r *realMessagesSendCall) Context(ctx context.Context) MessagesSendCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realMessagesSendCall) Do() (*gmail.Message, error) {
+	return r.call.Do()
+}
+
+type realMessagesTrashCall struct {
+	call *gmail.UsersMessagesTrashCall
+}
+
+func (r *realMessagesTrashCall) Context(ctx context.Context) MessagesTrashCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realMessagesTrashCall) Do() (*gmail.Message, error) {
+	return r.call.Do()
+}
+
+type realMessagesUntrashCall struct {
+	call *gmail.UsersMessagesUntrashCall
+}
+
+func (r *realMessagesUntrashCall) Context(ctx context.Context) MessagesUntrashCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realMessagesUntrashCall) Do() (*gmail.Message, error) {
+	return r.call.Do()
+}
+
+type realMessagesDeleteCall struct {
+	call *gmail.UsersMessagesDeleteCall
+}
+
+func (r *realMessagesDeleteCall) Context(ctx context.Context) MessagesDeleteCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realMessagesDeleteCall) Do() error {
+	return r.call.Do()
+}
+
+type realUsersWatchCall struct {
+	call *gmail.UsersWatchCall
+}
+
+func (r *realUsersWatchCall) Context(ctx context.Context) UsersWatchCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realUsersWatchCall) Do() (*gmail.WatchResponse, error) {
+	return r.call.Do()
+}
+
+type realUsersStopCall struct {
+	call *gmail.UsersStopCall
+}
+
+func (r *realUsersStopCall) Context(ctx context.Context) UsersStopCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realUsersStopCall) Do() error {
+	return r.call.Do()
+}
+
+type realUsersHistoryListCall struct {
+	call *gmail.UsersHistoryListCall
+}
+
+func (r *realUsersHistoryListCall) MaxResults(maxResults int64) UsersHistoryListCall {
+	r.call = r.call.MaxResults(maxResults)
+	return r
+}
+
+func (r *realUsersHistoryListCall) PageToken(token string) UsersHistoryListCall {
+	r.call = r.call.PageToken(token)
+	return r
+}
+
+func (r *realUsersHistoryListCall) LabelId(labelId string) UsersHistoryListCall {
+	r.call = r.call.LabelId(labelId)
+	return r
+}
+
+func (r *realUsersHistoryListCall) StartHistoryId(historyId uint64) UsersHistoryListCall {
+	r.call = r.call.StartHistoryId(historyId)
+	return r
+}
+
+func (r *realUsersHistoryListCall) HistoryTypes(types ...string) UsersHistoryListCall {
+	r.call = r.call.HistoryTypes(types...)
+	return r
+}
+
+func (r *realUsersHistoryListCall) Context(ctx context.Context) UsersHistoryListCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realUsersHistoryListCall) Do() (*gmail.ListHistoryResponse, error) {
 	return r.call.Do()
 }

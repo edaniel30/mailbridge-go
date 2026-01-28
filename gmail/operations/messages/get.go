@@ -1,6 +1,7 @@
-package gmail
+package messages
 
 import (
+	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -8,102 +9,41 @@ import (
 	"time"
 
 	"github.com/danielrivera/mailbridge-go/core"
+	"github.com/danielrivera/mailbridge-go/gmail/internal"
 	"google.golang.org/api/gmail/v1"
 )
 
-// ListMessages lists messages from Gmail
-func (c *Client) ListMessages(ctx context.Context, opts *core.ListOptions) (*core.ListResponse, error) {
-	if !c.IsConnected() {
-		return nil, fmt.Errorf("client not connected")
-	}
-
-	messagesService := c.service.GetUsersService().GetMessagesService()
-	call := messagesService.List("me")
-
-	if opts != nil {
-		if opts.MaxResults > 0 {
-			call = call.MaxResults(opts.MaxResults)
-		}
-		if opts.PageToken != "" {
-			call = call.PageToken(opts.PageToken)
-		}
-		if opts.Query != "" {
-			call = call.Q(opts.Query)
-		}
-		if len(opts.Labels) > 0 {
-			call = call.LabelIds(opts.Labels...)
-		}
-	}
-
-	resp, err := call.Context(ctx).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list messages: %w", err)
-	}
-
-	emails := make([]*core.Email, 0, len(resp.Messages))
-	for _, msg := range resp.Messages {
-		email, err := c.GetMessage(ctx, msg.Id)
-		if err != nil {
-			// Skip messages that can't be retrieved
-			continue
-		}
-		emails = append(emails, email)
-	}
-
-	return &core.ListResponse{
-		Emails:        emails,
-		NextPageToken: resp.NextPageToken,
-		TotalCount:    resp.ResultSizeEstimate,
-	}, nil
-}
-
 // GetMessage retrieves a specific message by ID
-func (c *Client) GetMessage(ctx context.Context, messageID string) (*core.Email, error) {
-	if !c.IsConnected() {
-		return nil, fmt.Errorf("client not connected")
-	}
-
-	messagesService := c.service.GetUsersService().GetMessagesService()
-	call := messagesService.Get("me", messageID)
+func GetMessage(ctx context.Context, service internal.GmailService, messageID string) (*core.Email, error) {
+	messagesService := service.GetUsersService().GetMessagesService()
+	call := messagesService.Get(operations.UserIDMe, messageID)
 	msg, err := call.Format("full").Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get message: %w", err)
 	}
 
-	return c.convertMessage(msg), nil
+	return convertMessage(msg), nil
 }
 
 // GetAttachment downloads an attachment by its ID from a specific message
-func (c *Client) GetAttachment(ctx context.Context, messageID, attachmentID string) ([]byte, error) {
-	if !c.IsConnected() {
-		return nil, fmt.Errorf("client not connected")
-	}
-
-	messagesService := c.service.GetUsersService().GetMessagesService()
-	attachment, err := messagesService.GetAttachment("me", messageID, attachmentID).Context(ctx).Do()
+func GetAttachment(ctx context.Context, service internal.GmailService, messageID, attachmentID string) ([]byte, error) {
+	messagesService := service.GetUsersService().GetMessagesService()
+	attachment, err := messagesService.GetAttachment(operations.UserIDMe, messageID, attachmentID).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get attachment: %w", err)
 	}
 
-	// Decode base64url encoded data (Gmail uses base64url without padding)
-	data, err := base64.RawURLEncoding.DecodeString(attachment.Data)
+	// Decode base64url encoded data using the shared helper
+	data, err := decodeBase64Data(attachment.Data)
 	if err != nil {
-		// Try with padding if raw fails
-		data, err = base64.URLEncoding.DecodeString(attachment.Data)
-		if err != nil {
-			// Try standard base64
-			data, err = base64.StdEncoding.DecodeString(attachment.Data)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode attachment data: %w", err)
-			}
-		}
+		return nil, fmt.Errorf("failed to decode attachment data: %w", err)
 	}
 
 	return data, nil
 }
 
 // convertMessage converts a Gmail message to normalized Email type
-func (c *Client) convertMessage(msg *gmail.Message) *core.Email {
+func convertMessage(msg *gmail.Message) *core.Email {
 	email := &core.Email{
 		ID:       msg.Id,
 		ThreadID: msg.ThreadId,
@@ -203,26 +143,36 @@ func extractAttachments(payload *gmail.MessagePart) []core.Attachment {
 	return attachments
 }
 
-// decodeBody decodes base64url encoded body data
-func decodeBody(data string) string {
+// decodeBase64Data attempts to decode base64-encoded data using multiple strategies
+// It tries RawURLEncoding (Gmail default), URLEncoding, and StdEncoding in order
+func decodeBase64Data(data string) ([]byte, error) {
 	if data == "" {
-		return ""
+		return nil, nil
 	}
 
-	// Gmail uses base64url without padding
+	// Gmail uses base64url without padding (RawURLEncoding)
 	decoded, err := base64.RawURLEncoding.DecodeString(data)
 	if err != nil {
-		// Try with padding if raw fails
+		// Try with padding if raw fails (URLEncoding)
 		decoded, err = base64.URLEncoding.DecodeString(data)
 		if err != nil {
-			// Try standard base64
+			// Try standard base64 as fallback
 			decoded, err = base64.StdEncoding.DecodeString(data)
 			if err != nil {
-				return ""
+				return nil, fmt.Errorf("failed to decode base64 data: %w", err)
 			}
 		}
 	}
 
+	return decoded, nil
+}
+
+// decodeBody decodes base64url encoded body data and returns it as a string
+func decodeBody(data string) string {
+	decoded, err := decodeBase64Data(data)
+	if err != nil {
+		return ""
+	}
 	return string(decoded)
 }
 

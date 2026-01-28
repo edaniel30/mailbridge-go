@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	tokenFile        = "token.json"
+	tokenFile        = "../token.json"
 	downloadDir      = "attachments"
 	maxMessagesToScan = 10
 )

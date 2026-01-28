@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // ConfigError represents a configuration validation error
 type ConfigError struct {
@@ -22,3 +25,6 @@ func NewConfigFieldError(field, message string) error {
 		Message: message,
 	}
 }
+
+// ErrNotConnected is returned when an operation is attempted on a disconnected client
+var ErrNotConnected = errors.New("client not connected")

@@ -33,6 +33,21 @@ func (m *MockUsersService) GetLabelsService() internal.LabelsService {
 	return args.Get(0).(internal.LabelsService)
 }
 
+func (m *MockUsersService) Watch(userID string, req *gmailapi.WatchRequest) internal.UsersWatchCall {
+	args := m.Called(userID, req)
+	return args.Get(0).(internal.UsersWatchCall)
+}
+
+func (m *MockUsersService) Stop(userID string) internal.UsersStopCall {
+	args := m.Called(userID)
+	return args.Get(0).(internal.UsersStopCall)
+}
+
+func (m *MockUsersService) GetHistory(userID string) internal.UsersHistoryListCall {
+	args := m.Called(userID)
+	return args.Get(0).(internal.UsersHistoryListCall)
+}
+
 // MockMessagesService is a mock for MessagesService
 type MockMessagesService struct {
 	mock.Mock
@@ -56,6 +71,26 @@ func (m *MockMessagesService) Modify(userID, messageID string, req *gmailapi.Mod
 func (m *MockMessagesService) GetAttachment(userID, messageID, attachmentID string) internal.MessagesAttachmentGetCall {
 	args := m.Called(userID, messageID, attachmentID)
 	return args.Get(0).(internal.MessagesAttachmentGetCall)
+}
+
+func (m *MockMessagesService) Send(userID string, message *gmailapi.Message) internal.MessagesSendCall {
+	args := m.Called(userID, message)
+	return args.Get(0).(internal.MessagesSendCall)
+}
+
+func (m *MockMessagesService) Trash(userID, messageID string) internal.MessagesTrashCall {
+	args := m.Called(userID, messageID)
+	return args.Get(0).(internal.MessagesTrashCall)
+}
+
+func (m *MockMessagesService) Untrash(userID, messageID string) internal.MessagesUntrashCall {
+	args := m.Called(userID, messageID)
+	return args.Get(0).(internal.MessagesUntrashCall)
+}
+
+func (m *MockMessagesService) Delete(userID, messageID string) internal.MessagesDeleteCall {
+	args := m.Called(userID, messageID)
+	return args.Get(0).(internal.MessagesDeleteCall)
 }
 
 // MockLabelsService is a mock for LabelsService
@@ -245,6 +280,108 @@ func (m *MockLabelsDeleteCall) Context(ctx context.Context) internal.LabelsDelet
 }
 
 func (m *MockLabelsDeleteCall) Do() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// MockMessagesSendCall is a mock for MessagesSendCall
+type MockMessagesSendCall struct {
+	mock.Mock
+}
+
+func (m *MockMessagesSendCall) Context(ctx context.Context) internal.MessagesSendCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockMessagesSendCall) Do() (*gmailapi.Message, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gmailapi.Message), args.Error(1)
+}
+
+// MockMessagesTrashCall is a mock for MessagesTrashCall
+type MockMessagesTrashCall struct {
+	mock.Mock
+}
+
+func (m *MockMessagesTrashCall) Context(ctx context.Context) internal.MessagesTrashCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockMessagesTrashCall) Do() (*gmailapi.Message, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gmailapi.Message), args.Error(1)
+}
+
+// MockMessagesUntrashCall is a mock for MessagesUntrashCall
+type MockMessagesUntrashCall struct {
+	mock.Mock
+}
+
+func (m *MockMessagesUntrashCall) Context(ctx context.Context) internal.MessagesUntrashCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockMessagesUntrashCall) Do() (*gmailapi.Message, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gmailapi.Message), args.Error(1)
+}
+
+// MockMessagesDeleteCall is a mock for MessagesDeleteCall
+type MockMessagesDeleteCall struct {
+	mock.Mock
+}
+
+func (m *MockMessagesDeleteCall) Context(ctx context.Context) internal.MessagesDeleteCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockMessagesDeleteCall) Do() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// MockUsersWatchCall is a mock for UsersWatchCall
+type MockUsersWatchCall struct {
+	mock.Mock
+}
+
+func (m *MockUsersWatchCall) Context(ctx context.Context) internal.UsersWatchCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockUsersWatchCall) Do() (*gmailapi.WatchResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gmailapi.WatchResponse), args.Error(1)
+}
+
+// MockUsersStopCall is a mock for UsersStopCall
+type MockUsersStopCall struct {
+	mock.Mock
+}
+
+func (m *MockUsersStopCall) Context(ctx context.Context) internal.UsersStopCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockUsersStopCall) Do() error {
 	args := m.Called()
 	return args.Error(0)
 }
