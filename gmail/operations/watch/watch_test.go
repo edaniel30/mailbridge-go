@@ -203,7 +203,7 @@ func TestGetHistory_WithOptions(t *testing.T) {
 	mockHistoryCall.On("MaxResults", int64(50)).Return(mockHistoryCall)
 	mockHistoryCall.On("PageToken", "token123").Return(mockHistoryCall)
 	mockHistoryCall.On("LabelId", "INBOX").Return(mockHistoryCall)
-	mockHistoryCall.On("HistoryTypes", "messageAdded", "messageDeleted").Return(mockHistoryCall)
+	mockHistoryCall.On("HistoryTypes", []string{"messageAdded", "messageDeleted"}).Return(mockHistoryCall)
 	mockHistoryCall.On("Context", ctx).Return(mockHistoryCall)
 	mockHistoryCall.On("Do").Return(&gmail.ListHistoryResponse{
 		History:       []*gmail.History{},

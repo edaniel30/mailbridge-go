@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/danielrivera/mailbridge-go/gmail/internal"
 	gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

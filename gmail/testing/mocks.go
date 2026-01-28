@@ -385,3 +385,46 @@ func (m *MockUsersStopCall) Do() error {
 	args := m.Called()
 	return args.Error(0)
 }
+
+// MockUsersHistoryListCall is a mock for UsersHistoryListCall
+type MockUsersHistoryListCall struct {
+	mock.Mock
+}
+
+func (m *MockUsersHistoryListCall) MaxResults(maxResults int64) internal.UsersHistoryListCall {
+	m.Called(maxResults)
+	return m
+}
+
+func (m *MockUsersHistoryListCall) PageToken(token string) internal.UsersHistoryListCall {
+	m.Called(token)
+	return m
+}
+
+func (m *MockUsersHistoryListCall) LabelId(labelId string) internal.UsersHistoryListCall {
+	m.Called(labelId)
+	return m
+}
+
+func (m *MockUsersHistoryListCall) StartHistoryId(historyId uint64) internal.UsersHistoryListCall {
+	m.Called(historyId)
+	return m
+}
+
+func (m *MockUsersHistoryListCall) HistoryTypes(types ...string) internal.UsersHistoryListCall {
+	m.Called(types)
+	return m
+}
+
+func (m *MockUsersHistoryListCall) Context(ctx context.Context) internal.UsersHistoryListCall {
+	m.Called(ctx)
+	return m
+}
+
+func (m *MockUsersHistoryListCall) Do() (*gmailapi.ListHistoryResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gmailapi.ListHistoryResponse), args.Error(1)
+}
