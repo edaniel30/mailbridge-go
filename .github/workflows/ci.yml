@@ -6,7 +6,7 @@ on:
 
 env:
   GO_VERSION: "1.25"
-  COVERAGE_THRESHOLD: 54
+  COVERAGE_THRESHOLD: 70
 
 jobs:
   test:
@@ -41,8 +41,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          # Run tests excluding examples directory
-          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /examples/)
+          # Run tests excluding examples, testing (mocks), and internal (interfaces only)
+          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v -e /examples -e /gmail/testing -e /gmail/internal)
 
       - name: Check coverage threshold
         run: |
