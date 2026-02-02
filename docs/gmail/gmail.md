@@ -135,24 +135,55 @@ Detailed guides for specific operations:
 
 ## Usage Examples
 
-See the [examples/](../examples/) directory for complete working examples:
+See [examples/gmail/](../../examples/gmail/) for a complete, runnable example demonstrating all features.
 
-- **[examples/gmail/](../../examples/gmail/)** - Basic operations, OAuth2 flow
-- **[examples/gmail-send/](../../examples/gmail-send/)** - Send emails with HTML/attachments
-- **[examples/gmail-attachments/](../../examples/gmail-attachments/)** - Download attachments
-- **[examples/gmail-search/](../../examples/gmail-search/)** - Advanced search queries
-- **[examples/gmail-delete/](../../examples/gmail-delete/)** - Trash and delete operations
-- **[examples/gmail-notifications/](../../examples/gmail-notifications/)** - Real-time notifications
+### Running the Example
 
-**Run examples:**
 ```bash
-export GMAIL_CLIENT_ID="your-id"
-export GMAIL_CLIENT_SECRET="your-secret"
-cd examples/gmail/gmail-connection
+# 1. Set credentials
+export GMAIL_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+export GMAIL_CLIENT_SECRET="your-client-secret"
+
+# 2. Run example
+cd examples/gmail
 go run main.go
 ```
 
-**Note:** All examples share the same credentials stored in `examples/gmail/token.json`. Once you authenticate with one example, others will use the same token automatically.
+**First Run:** You'll be prompted to authorize via browser. The token is saved to `token.json` for future use.
+
+**What it demonstrates:**
+- OAuth2 authentication with token persistence
+- Listing recent and unread messages
+- Advanced search with query builder
+- Getting message details
+- Managing labels
+- Downloading attachments (optional)
+
+### Query Builder Examples
+
+```go
+// Search for unread emails from boss with PDF attachments
+query := gmail.NewQueryBuilder().
+    IsUnread().
+    From("boss@company.com").
+    Filename("pdf").
+    HasAttachment().
+    Build()
+
+messages, err := client.ListMessages(ctx, &core.ListOptions{
+    Query:      query,
+    MaxResults: 10,
+})
+```
+
+**Available methods:**
+- `IsUnread()`, `IsRead()`, `IsStarred()`, `IsImportant()`
+- `From(email)`, `To(email)`, `Subject(text)`
+- `HasAttachment()`, `Filename(extension)`
+- `After(date)`, `Before(date)`
+- `InInbox()`, `InSent()`, `InDraft()`
+- `Category(name)`, `LargerThan(size)`, `SmallerThan(size)`
+- `NOT()`, `OR()`
 
 ### Common Search Queries
 

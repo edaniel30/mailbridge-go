@@ -42,3 +42,4 @@ __debug_bin*
 examples/gmail/token.json
 examples/gmail/service-account-key.json
 examples/gmail/gmail-attachments/attachments
+examples/outlook/token.json

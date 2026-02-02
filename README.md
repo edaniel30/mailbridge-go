@@ -6,8 +6,8 @@ A modular, type-safe Go library for interacting with email providers.
 
 | Provider | Status | Documentation |
 |----------|--------|---------------|
-| Gmail | ✅ Ready | [docs/GMAIL.md](docs/GMAIL.md) |
-| Outlook | 🚧 Planned | - |
+| Gmail | ✅ Ready | [docs/GMAIL.md](docs/gmail/gmail.md) |
+| Outlook | ✅ Ready | [docs/OUTLOOK.md](docs/outlook/outlook.md) |
 
 ## Installation
 
@@ -23,7 +23,7 @@ MailBridge uses a modular architecture where you import only what you need:
 import (
     "github.com/danielrivera/mailbridge-go/core"    // Shared types
     "github.com/danielrivera/mailbridge-go/gmail"   // Gmail provider
-    // "github.com/danielrivera/mailbridge-go/outlook" // Future providers
+    "github.com/danielrivera/mailbridge-go/outlook" // Outlook provider
 )
 ```
 
@@ -63,7 +63,8 @@ type ListOptions struct {
 
 Each provider has its own comprehensive documentation:
 
-- **[Gmail Integration](docs/GMAIL.md)** - Setup, authentication, usage examples
+- **[Gmail Integration](docs/GMAIL.md)** - Google OAuth2 setup, authentication, usage examples
+- **[Outlook Integration](docs/outlook/outlook.md)** - Microsoft Entra ID setup, authentication, usage examples
 - **[Examples](examples/)** - Working code samples for all providers
 
 ## Testing
@@ -74,14 +75,6 @@ make test-coverage     # With coverage report
 make test-unit         # Unit tests only
 make pre-commit        # Run all checks
 ```
-
-## Contributing
-
-1. Fork the repo
-2. Create feature branch
-3. Add tests
-4. Run `make pre-commit`
-5. Submit PR
 
 ## License
 
