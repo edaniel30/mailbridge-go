@@ -1,12 +1,12 @@
 package messages
 
 import (
-	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"

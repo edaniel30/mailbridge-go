@@ -1,9 +1,9 @@
 package messages
 
 import (
-	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"context"
 	"fmt"
+	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"strings"
 
 	"github.com/danielrivera/mailbridge-go/gmail/internal"

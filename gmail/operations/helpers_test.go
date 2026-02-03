@@ -7,7 +7,6 @@ import (
 
 	gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestUserIDMe(t *testing.T) {
@@ -157,14 +156,6 @@ func TestBatchOperation_ContextCancellation(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 }
-
-// Helper function to verify mock interactions
-func verifyMockCalls(t *testing.T, mocks ...interface{ AssertExpectations(t mock.TestingT) bool }) {
-	for _, m := range mocks {
-		m.AssertExpectations(t)
-	}
-}
-
 // Test helper utilities
 func TestHelpers_ChainedCalls(t *testing.T) {
 	mockService := &gmailtest.MockGmailService{}

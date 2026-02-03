@@ -519,7 +519,6 @@ func TestBatchTrashMessages(t *testing.T) {
 	}
 }
 
-
 func TestBatchModifyMessages(t *testing.T) {
 	ctx := context.Background()
 
@@ -650,8 +649,9 @@ func TestBatchMoveToFolder(t *testing.T) {
 			name:       "empty slice",
 			messageIDs: []string{},
 			folderName: "Archive",
-			setupMock:  func(mockLabelsService *gmailtest.MockLabelsService, mockMessagesService *gmailtest.MockMessagesService) {},
-			wantErr:    false,
+			setupMock: func(mockLabelsService *gmailtest.MockLabelsService, mockMessagesService *gmailtest.MockMessagesService) {
+			},
+			wantErr: false,
 		},
 		{
 			name:       "successful move with existing label",
@@ -704,4 +704,3 @@ func TestBatchMoveToFolder(t *testing.T) {
 		})
 	}
 }
-

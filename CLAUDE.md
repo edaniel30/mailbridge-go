@@ -1,486 +1,506 @@
-# MailBridge Go - Developer Context
+# MailBridge Go - Provider Implementation Guide
 
 **Version:** 2.0 | **Language:** Go 1.25 | **Architecture:** Modular Provider Packages
 
-> **Quick Links:** [README](README.md) | [Gmail Docs](docs/GMAIL.md) | [Examples](examples/README.md) | [Makefile](Makefile)
+> **Purpose:** Guide for implementing email provider integrations in MailBridge Go.
 
 ---
 
-## 1. Architecture Overview
+## 1. Architecture
 
-### Core Principle: Modular Provider Packages
-
-**v1.x → v2.0 Refactoring (Completed Jan 2025):**
-- **Before:** Centralized `mailbridge.Client` with provider enum on every call
-- **After:** Provider-specific packages (`gmail`, `outlook`) imported independently
-- **Benefits:** Smaller binaries, cleaner API, easier extensibility
-
-```go
-// v1.x (OLD)
-client.ListMessages(ctx, config.ProviderGmail, opts)
-
-// v2.0 (NEW)
-gmailClient.ListMessages(ctx, opts)
-```
-
-### Three-Layer Architecture
+### Core Principle
+Each provider is an **independent package** that depends on `core/` types. The `core/` package has **ZERO dependencies** on providers.
 
 ```
-┌─────────────────────────────────────────┐
-│  PUBLIC API (gmail/*.go)                │  ← Users interact here
-│  - OAuth2, high-level operations        │  ← Converts to core types
-└─────────────────────────────────────────┘
-            ↓ uses
-┌─────────────────────────────────────────┐
-│  INTERNAL INTERFACES (gmail/internal/)  │  ← Abstraction for mocking
-│  - GmailService, MessagesService        │  ← Enables testability
-└─────────────────────────────────────────┘
-            ↓ implements
-┌─────────────────────────────────────────┐
-│  EXTERNAL API (google.golang.org/api)   │  ← Gmail SDK
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  PUBLIC API (provider/*.go)         │  ← User-facing interface
+│  - OAuth2, configuration            │
+└─────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────┐
+│  INTERNAL (provider/internal/)      │  ← Abstraction for mocking
+│  - Interface wrappers for SDK       │
+└─────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────┐
+│  EXTERNAL SDK (3rd party)           │  ← Provider's official SDK
+└─────────────────────────────────────┘
 ```
 
-**Key Rule:** `core` package has ZERO dependencies on providers. Providers depend on `core`.
-
----
-
-## 2. Project Structure
-
+### Project Structure
 ```
 mailbridge-go/
-├── core/                       # Provider-agnostic types (Email, ListOptions, Attachment)
-│   ├── types.go                # Normalized email types
-│   └── errors.go               # ConfigError for validation
+├── core/                    # Provider-agnostic types
+│   ├── types.go             # Email, ListOptions, Attachment, Label
+│   └── errors.go            # ConfigError
 │
-├── gmail/                      # Gmail provider (PUBLIC)
-│   ├── client.go               # OAuth2 + connection management
-│   ├── config.go               # Gmail config + validation
-│   ├── messages.go             # List/get messages, download attachments
-│   ├── labels.go               # Label operations, mark read/unread
-│   ├── internal/               # Private implementation details
-│   │   ├── interfaces.go       # Abstraction interfaces for Gmail API
-│   │   └── service_wrapper.go # Real implementations wrapping Gmail SDK
-│   └── testing/                # Public mocks for external tests
-│       └── mocks.go            # testify/mock implementations
+├── <provider>/              # Provider package (gmail, outlook, etc.)
+│   ├── client.go            # OAuth2 + connection
+│   ├── config.go            # Configuration + validation
+│   ├── messages.go          # Message operations
+│   ├── folders.go           # Folder operations (optional)
+│   ├── internal/
+│   │   ├── interfaces.go    # SDK abstractions
+│   │   └── service_wrapper.go  # Real implementations
+│   └── testing/
+│       └── mocks.go         # Mock implementations
 │
-├── examples/                   # Runnable examples (see examples/README.md)
-├── docs/                       # Provider-specific guides (see docs/GMAIL.md)
-└── Makefile                    # Tasks: test, coverage, pre-commit
+├── examples/<provider>/     # Runnable example
+└── docs/<provider>/         # Provider guide
 ```
-
-**Critical Files:**
-- `gmail/client.go` (136 lines) - Entry point, OAuth2 flow
-- `gmail/messages.go` (287 lines) - Message ops, attachment download, conversion to core types
-- `gmail/labels.go` (233 lines) - Label management
-- `gmail/internal/interfaces.go` (98 lines) - Interface abstractions for mocking
 
 ---
 
-## 3. Design Patterns
+## 2. Core Types (core/types.go)
 
-### 3.1 Adapter Pattern
-**Location:** `gmail/messages.go:106` (`convertMessage()`)
+All providers MUST convert to these normalized types:
 
-Converts Gmail API types to provider-agnostic `core.Email`:
 ```go
-func (c *Client) convertMessage(msg *gmail.Message) *core.Email {
-    return &core.Email{
-        ID:      msg.Id,
-        Subject: parseHeader(msg.Payload.Headers, "subject"),
-        From:    parseEmailAddress(headers["from"]),
-        // ... normalize all fields
+type Email struct {
+    ID          string
+    ThreadID    string
+    Subject     string
+    From        EmailAddress
+    To          []EmailAddress
+    Cc          []EmailAddress
+    Bcc         []EmailAddress
+    Date        time.Time
+    Body        EmailBody
+    Snippet     string
+    Attachments []Attachment
+    Labels      []string
+    IsRead      bool
+    IsStarred   bool
+}
+
+type ListOptions struct {
+    MaxResults int64
+    PageToken  string
+    Query      string
+    Labels     []string
+}
+
+type ListResponse struct {
+    Emails        []*Email
+    NextPageToken string
+    TotalCount    int64
+}
+
+type Attachment struct {
+    ID       string
+    Filename string
+    MimeType string
+    Size     int64
+    Data     []byte  // Only populated when explicitly downloaded
+}
+
+type Label struct {
+    ID             string
+    Name           string
+    Type           string  // "system" or "user"
+    TotalMessages  int
+    UnreadMessages int
+}
+```
+
+---
+
+## 3. Implementation Steps
+
+### Step 1: Create Package Structure
+```bash
+mkdir <provider> && cd <provider>
+touch client.go config.go messages.go
+mkdir internal testing
+touch internal/{interfaces,service_wrapper}.go testing/mocks.go
+```
+
+### Step 2: Configuration (config.go)
+```go
+package provider
+
+type Config struct {
+    ClientID     string
+    ClientSecret string
+    RedirectURL  string
+    Scopes       []string
+}
+
+func (c *Config) Validate() error {
+    if c.ClientID == "" {
+        return &core.ConfigError{Field: "ClientID", Message: "required"}
     }
+    // Validate all required fields
+    return nil
+}
+
+func DefaultScopes() []string {
+    return []string{/* provider OAuth scopes */}
 }
 ```
 
-### 3.2 Wrapper Pattern
-**Location:** `gmail/internal/service_wrapper.go`
-
-Wraps concrete Gmail SDK in interfaces for mocking:
+### Step 3: Interfaces (internal/interfaces.go)
 ```go
-type RealGmailService struct {
-    service *gmail.Service  // ← Concrete Gmail SDK
+package internal
+
+// Main service interface
+type ProviderService interface {
+    GetMessagesService() MessagesService
 }
 
-func (r *RealGmailService) GetUsersService() UsersService {
-    return &realUsersService{users: r.service.Users}
-}
-```
-
-### 3.3 Strategy Pattern
-**Location:** `gmail/messages.go:207` (`decodeBody()`)
-
-Try multiple base64 decoding strategies:
-```go
-// 1. RawURLEncoding (Gmail default)
-decoded, err := base64.RawURLEncoding.DecodeString(data)
-if err != nil {
-    // 2. URLEncoding (with padding)
-    decoded, err = base64.URLEncoding.DecodeString(data)
-    if err != nil {
-        // 3. Standard base64 (fallback)
-        decoded, err = base64.StdEncoding.DecodeString(data)
-    }
+// Messages interface
+type MessagesService interface {
+    List(ctx context.Context, opts *core.ListOptions) ([]ProviderMessage, error)
+    Get(ctx context.Context, messageID string) (ProviderMessage, error)
+    GetAttachment(ctx, messageID, attachmentID string) (ProviderAttachment, error)
+    MarkAsRead(ctx context.Context, messageID string) error
+    MarkAsUnread(ctx context.Context, messageID string) error
+    Delete(ctx context.Context, messageID string) error
 }
 ```
 
-### 3.4 Factory Method
-**Location:** `gmail/client.go:22` (`New()`)
-
+### Step 4: Client (client.go)
 ```go
+package provider
+
+type Client struct {
+    config       *Config
+    oauth2Config *oauth2.Config
+    token        *oauth2.Token
+    service      internal.ProviderService
+}
+
 func New(config *Config) (*Client, error) {
-    if err := config.Validate(); err != nil {  // Eager validation
+    if err := config.Validate(); err != nil {
         return nil, err
     }
-    return &Client{
-        config:       config,
-        oauth2Config: config.ToOAuth2Config(),
-    }, nil
+    return &Client{config: config}, nil
+}
+
+func (c *Client) IsConnected() bool {
+    return c.service != nil && c.token != nil
+}
+
+func (c *Client) GetAuthURL(state string) string {
+    return c.oauth2Config.AuthCodeURL(state)
+}
+
+func (c *Client) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {
+    return c.oauth2Config.Exchange(ctx, code)
+}
+
+func (c *Client) ConnectWithToken(ctx context.Context, token *oauth2.Token) error {
+    // Initialize provider SDK with token
+    // Wrap SDK with internal.NewRealProviderService()
+    c.token = token
+    return nil
+}
+
+func (c *Client) RefreshToken(ctx context.Context) (*oauth2.Token, error) {
+    tokenSource := c.oauth2Config.TokenSource(ctx, c.token)
+    return tokenSource.Token()
+}
+
+func (c *Client) Close() error {
+    c.service = nil
+    return nil
+}
+```
+
+### Step 5: Message Operations (messages.go)
+```go
+package provider
+
+func (c *Client) ListMessages(ctx context.Context, opts *core.ListOptions) (*core.ListResponse, error) {
+    if !c.IsConnected() {
+        return nil, fmt.Errorf("client not connected")
+    }
+
+    messagesService := c.service.GetMessagesService()
+    providerMessages, err := messagesService.List(ctx, opts)
+    if err != nil {
+        return nil, fmt.Errorf("failed to list messages: %w", err)
+    }
+
+    // Convert provider types to core types
+    emails := make([]*core.Email, 0, len(providerMessages))
+    for _, msg := range providerMessages {
+        emails = append(emails, c.convertMessage(msg))
+    }
+
+    return &core.ListResponse{Emails: emails}, nil
+}
+
+func (c *Client) GetMessage(ctx context.Context, messageID string) (*core.Email, error) {
+    if !c.IsConnected() {
+        return nil, fmt.Errorf("client not connected")
+    }
+
+    messagesService := c.service.GetMessagesService()
+    message, err := messagesService.Get(ctx, messageID)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get message: %w", err)
+    }
+
+    return c.convertMessage(message), nil
+}
+
+// ADAPTER PATTERN: Convert provider types to core.Email
+func (c *Client) convertMessage(msg ProviderMessage) *core.Email {
+    return &core.Email{
+        ID:      extractID(msg),
+        Subject: extractSubject(msg),
+        From:    extractFrom(msg),
+        // ... populate all fields
+    }
+}
+```
+
+### Step 6: Service Wrapper (internal/service_wrapper.go)
+```go
+package internal
+
+type RealProviderService struct {
+    client *sdk.Client  // Provider's SDK
+}
+
+func NewRealProviderService(client *sdk.Client) ProviderService {
+    return &RealProviderService{client: client}
+}
+
+func (r *RealProviderService) GetMessagesService() MessagesService {
+    return &realMessagesService{client: r.client}
+}
+
+type realMessagesService struct {
+    client *sdk.Client
+}
+
+func (r *realMessagesService) List(ctx context.Context, opts *core.ListOptions) ([]ProviderMessage, error) {
+    // Call provider SDK
+    // Convert core.ListOptions to provider format
+    // Return provider messages
+}
+```
+
+### Step 7: Mocks (testing/mocks.go)
+```go
+package testing
+
+import "github.com/stretchr/testify/mock"
+
+type MockProviderService struct {
+    mock.Mock
+}
+
+func (m *MockProviderService) GetMessagesService() internal.MessagesService {
+    return m.Called().Get(0).(internal.MessagesService)
+}
+
+type MockMessagesService struct {
+    mock.Mock
+}
+
+func (m *MockMessagesService) List(ctx context.Context, opts *core.ListOptions) ([]internal.ProviderMessage, error) {
+    args := m.Called(ctx, opts)
+    return args.Get(0).([]internal.ProviderMessage), args.Error(1)
+}
+```
+
+### Step 8: Tests
+```go
+// Unit tests (*_test.go)
+func TestConfig_Validate(t *testing.T) { /* ... */ }
+
+// Integration tests (*_integration_test.go)
+func TestClient_ListMessages(t *testing.T) {
+    mockService := &testing.MockProviderService{}
+    mockMessages := &testing.MockMessagesService{}
+
+    mockService.On("GetMessagesService").Return(mockMessages)
+    mockMessages.On("List", mock.Anything, mock.Anything).Return([]internal.ProviderMessage{}, nil)
+
+    client := &Client{service: mockService}
+    result, err := client.ListMessages(ctx, opts)
+
+    assert.NoError(t, err)
+    mockService.AssertExpectations(t)
 }
 ```
 
 ---
 
-## 4. Dependency Injection
+## 4. Critical Rules
 
-**Interface-Based DI for Testability:**
+1. **Provider Independence:** `core/` MUST NOT import provider packages
+2. **Type Normalization:** All provider types MUST convert to `core.*` types via adapter pattern
+3. **No Logging:** Library code MUST NOT log (return errors instead)
+4. **Interface-Based Calls:** All SDK calls MUST go through interfaces (enables mocking)
+5. **Lazy Loading:** Don't download attachments in `ListMessages()` (use explicit `GetAttachment()`)
+6. **Error Wrapping:** Always wrap errors: `fmt.Errorf("failed to X: %w", err)`
 
+---
+
+## 5. Design Patterns
+
+### Adapter Pattern
+Convert provider types to `core.*` types in `convertMessage()`:
 ```go
-// gmail/client.go
+func (c *Client) convertMessage(providerMsg ProviderMessage) *core.Email {
+    return &core.Email{
+        ID:      providerMsg.GetID(),
+        Subject: providerMsg.GetSubject(),
+        // Normalize all fields
+    }
+}
+```
+
+### Wrapper Pattern
+Wrap SDK in interfaces for mocking (`internal/service_wrapper.go`):
+```go
+type RealProviderService struct {
+    client *ProviderSDK  // Concrete SDK
+}
+```
+
+### Dependency Injection
+Inject interfaces, not concrete types:
+```go
 type Client struct {
-    service internal.GmailService  // ← Interface, not *gmail.Service
-}
-
-// Production: inject real implementation
-func (c *Client) ConnectWithToken(ctx, token) {
-    gmailService := gmail.New(...)
-    c.service = internal.NewRealGmailService(gmailService)
-}
-
-// Testing: inject mock
-func TestClient_Operation(t *testing.T) {
-    mockService := &gmailtest.MockGmailService{}
-    client.SetService(mockService)  // ← Swap implementation
-}
-```
-
-**Result:** Tests never hit real Gmail API. Fast, deterministic, no credentials needed.
-
----
-
-## 5. Coding Conventions
-
-### Naming
-- **Exported:** `PascalCase` → `ListMessages`, `EmailAddress`, `ConfigError`
-- **Unexported:** `camelCase` → `convertMessage`, `messageID`, `oauth2Config`
-- **Acronyms:** All caps when exported (`ID`, `URL`, `HTML`), lowercase when unexported
-
-### File Organization
-```go
-package gmail
-
-// 1. Imports (stdlib → external → internal)
-import (
-    "context"
-    "fmt"
-
-    "golang.org/x/oauth2"
-
-    "github.com/danielrivera/mailbridge-go/core"
-)
-
-// 2. Types
-type Client struct { ... }
-
-// 3. Constructor
-func New(config *Config) (*Client, error) { ... }
-
-// 4. Public methods (alphabetical or logical grouping)
-func (c *Client) ListMessages(...) {...}
-
-// 5. Private helpers (end of file)
-func convertMessage(...) {...}
-```
-
-### Comments
-- **Exported:** Must have godoc starting with name
-- **Complex logic:** Explain "why", not "what"
-- **Special cases:** Mark with inline comments (e.g., `// Gmail uses base64url without padding`)
-
-### Error Handling
-```go
-// ✅ DO: Wrap with context
-return fmt.Errorf("failed to get message %s: %w", messageID, err)
-
-// ❌ DON'T: Generic errors
-return fmt.Errorf("error occurred")
-
-// ❌ DON'T: Swallow errors silently
-if err != nil {
-    continue  // User never knows why it failed
+    service internal.ProviderService  // Interface, not concrete
 }
 ```
 
 ---
 
-## 6. Testing Strategy
+## 6. Testing
 
-**Coverage:** 86.1% (threshold: 74%)
-**Test Count:** 58 tests
-**Commands:** See [Makefile](Makefile)
+### Coverage Target
+- **Minimum:** 74%
+- **Commands:** `make test`, `make test-coverage`
 
-### Test Types
-
-**1. Unit Tests (`*_test.go`)**
-- Pure functions: parsers, converters, validators
-- Example: `gmail/messages_test.go` (parseEmailAddress, decodeBody, extractBody)
-
-**2. Integration Tests (`*_integration_test.go`)**
-- Client operations with mocked services
-- Example: `gmail/messages_integration_test.go` (ListMessages, GetMessage, GetAttachment)
-
-### Mocking Pattern
+### Mock Pattern
 ```go
 // 1. Create mocks
-mockService := &gmailtest.MockGmailService{}
-mockCall := &gmailtest.MockMessagesGetCall{}
+mockService := &testing.MockProviderService{}
+mockMessages := &testing.MockMessagesService{}
 
 // 2. Configure expectations
-mockService.On("GetMessagesService").Return(mockMessagesService)
-mockCall.On("Context", ctx).Return(mockCall)
-mockCall.On("Do").Return(expectedMessage, nil)
+mockService.On("GetMessagesService").Return(mockMessages)
+mockMessages.On("List", ctx, opts).Return(expectedMessages, nil)
 
 // 3. Inject
-client.SetService(mockService)
+client.service = mockService
 
 // 4. Execute & assert
-result, err := client.GetMessage(ctx, "msg-123")
+result, err := client.ListMessages(ctx, opts)
 assert.NoError(t, err)
 mockService.AssertExpectations(t)
 ```
 
-**No E2E Tests:** Examples serve as manual E2E validation.
+---
+
+## 7. Validation Checklist
+
+Before submitting:
+
+**Code:**
+- [ ] `core/` package NOT modified
+- [ ] All types convert to `core.*` types
+- [ ] All SDK calls through interfaces
+- [ ] Error wrapping with context
+- [ ] No logging in library
+
+**Testing:**
+- [ ] Unit tests (*_test.go)
+- [ ] Integration tests (*_integration_test.go)
+- [ ] Coverage ≥74%
+- [ ] `make pre-commit` passes
+
+**Documentation:**
+- [ ] Provider guide in docs/<provider>/
+- [ ] Runnable example in examples/<provider>/
+- [ ] README.md updated
+
+**Files:**
+- [ ] client.go, config.go, messages.go
+- [ ] internal/interfaces.go, internal/service_wrapper.go
+- [ ] testing/mocks.go
 
 ---
 
-## 7. Data Flow
-
-### Message Retrieval Lifecycle
-
-```
-1. User calls gmailClient.ListMessages(ctx, opts)
-   ↓
-2. Client validates connection (IsConnected())
-   ↓
-3. service.GetUsersService().GetMessagesService().List("me")
-   ↓ (interface call to gmail/internal/)
-4. RealMessagesService.List() → wraps Gmail API
-   ↓
-5. Gmail API returns *gmail.ListMessagesResponse
-   ↓
-6. For each message: GetMessage(ctx, msg.Id)
-   ↓
-7. convertMessage(*gmail.Message) → *core.Email
-   ↓
-8. Return core.ListResponse with []*core.Email
-```
-
-**Key Transformation:** `gmail.Message` (DTO) → `core.Email` (Domain Model) at step 7
-
----
-
-## 8. Critical Business Rules
-
-### 1. Provider Independence
-- **Rule:** `core/` MUST NOT import provider packages
-- **Enforcement:** Manual review, import path checks
-- **Why:** Enables adding providers without modifying core
-
-### 2. Normalized Types
-- **Rule:** All provider types MUST convert to `core.*` types before returning to user
-- **Why:** Consistent API across providers
-- **Implementation:** Adapter pattern in `convertMessage()`, etc.
-
-### 3. No Logging in Library
-- **Rule:** Library code MUST NOT log
-- **Why:** Users control logging, not libraries
-- **Exception:** Examples can log for demonstration
-
-### 4. Interface-Based External Calls
-- **Rule:** All external API calls MUST go through interfaces
-- **Why:** Enables mocking for tests
-- **Implementation:** `gmail/internal/interfaces.go` layer
-
-### 5. Lazy Attachment Loading
-- **Rule:** Attachments not downloaded in `ListMessages()`, only metadata
-- **Why:** Avoid downloading large files unnecessarily
-- **Usage:** Explicit `GetAttachment(ctx, messageID, attachmentID)` call
-
----
-
-## 9. Anti-Patterns to Avoid
+## 8. Anti-Patterns
 
 ```go
-// ❌ 1. Provider Enums (v1.x pattern)
-client.ListMessages(ctx, config.ProviderGmail, opts)
-
-// ✅ Use modular imports
-gmailClient.ListMessages(ctx, opts)
-
-// ❌ 2. Mixing Provider Logic in Core
+// ❌ Provider logic in core
 package core
-func ConvertGmailMessage(msg *gmail.Message) {...}  // NO!
+func ConvertProviderMessage(msg *provider.Message) {...}
 
-// ✅ Provider handles its own conversions
-package gmail
-func (c *Client) convertMessage(msg *gmail.Message) *core.Email {...}
+// ✅ Provider handles conversions
+package provider
+func (c *Client) convertMessage(msg *provider.Message) *core.Email {...}
 
-// ❌ 3. Logging in Library
-log.Printf("Fetching message %s", messageID)  // NO!
+// ❌ Concrete dependencies
+type Client struct {
+    sdk *provider.SDK  // Hard to mock
+}
 
-// ✅ Return errors, let user log
+// ✅ Interface dependencies
+type Client struct {
+    service internal.ProviderService  // Easy to mock
+}
+
+// ❌ Testing against real API
+client := setupRealClient()  // Slow, requires credentials
+
+// ✅ Mock-based testing
+client := &Client{service: mockService}  // Fast, deterministic
+
+// ❌ Logging
+log.Printf("Fetching %s", id)
+
+// ✅ Return errors
 return fmt.Errorf("failed to get message: %w", err)
-
-// ❌ 4. Concrete Dependencies
-type Client struct {
-    service *gmail.Service  // Hard to mock
-}
-
-// ✅ Interface Dependencies
-type Client struct {
-    service internal.GmailService  // Easy to mock
-}
-
-// ❌ 5. Testing Against Real API
-client.ConnectWithToken(ctx, realToken)  // Slow, brittle
-
-// ✅ Inject Mocks
-client.SetService(mockService)  // Fast, deterministic
 ```
 
 ---
 
-## 10. Adding New Features
+## 9. Required Methods
 
-### Adding a New Provider (e.g., Outlook)
+```go
+// Client
+New(config *Config) (*Client, error)
+IsConnected() bool
+GetAuthURL(state string) string
+ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error)
+ConnectWithToken(ctx context.Context, token *oauth2.Token) error
+RefreshToken(ctx context.Context) (*oauth2.Token, error)
+Close() error
 
-1. **Create package:** `mkdir outlook && touch outlook/{client,config,messages}.go`
-2. **Define interfaces:** `outlook/internal/interfaces.go`
-3. **Implement wrappers:** `outlook/internal/service_wrapper.go`
-4. **Convert to core types:** `convertMessage()` in `outlook/messages.go`
-5. **Create mocks:** `outlook/testing/mocks.go`
-6. **Write tests:** `outlook/*_test.go`, `outlook/*_integration_test.go`
-7. **Update docs:** `docs/OUTLOOK.md`, update `README.md` table
-8. **Add example:** `examples/outlook/`
-
-**Validation Checklist:**
-- [ ] `core` package NOT modified
-- [ ] New provider independent of `gmail`
-- [ ] All external calls through interfaces
-- [ ] All types convert to `core.*`
-- [ ] Coverage ≥74%
-
-### Adding Operation to Gmail
-
-**Example: Send Email**
-
-1. Add method: `gmail/client.go` → `func (c *Client) SendEmail(...)`
-2. Add interface: `gmail/internal/interfaces.go` → `MessagesService.Send()`
-3. Implement wrapper: `gmail/internal/service_wrapper.go` → `realMessagesService.Send()`
-4. Add mock: `gmail/testing/mocks.go` → `MockMessagesService.Send()`
-5. Write tests: `gmail/messages_test.go` + `gmail/messages_integration_test.go`
-6. Update docs: `gmail/doc.go`, `docs/GMAIL.md`
-7. Run: `make pre-commit`
+// Messages
+ListMessages(ctx context.Context, opts *core.ListOptions) (*core.ListResponse, error)
+GetMessage(ctx context.Context, messageID string) (*core.Email, error)
+GetAttachment(ctx context.Context, messageID, attachmentID string) (*core.Attachment, error)
+MarkAsRead(ctx context.Context, messageID string) error
+MarkAsUnread(ctx context.Context, messageID string) error
+DeleteMessage(ctx context.Context, messageID string) error
+```
 
 ---
 
-## 11. Performance Considerations
+## 10. Reference Implementations
 
-**1. Attachment Download:**
-- Lazy loading (metadata only in `ListMessages()`)
-- Explicit download via `GetAttachment()`
-
-**2. Pagination:**
-- Use `ListOptions.MaxResults` (default: provider limit)
-- Fetch in batches (20-100 recommended)
-- Use `NextPageToken` for subsequent pages
-
-**3. Base64 Decoding:**
-- Strategy pattern: RawURLEncoding first (fastest for Gmail)
-- Fallback to URLEncoding → StdEncoding
-
-**4. No Caching:**
-- Current: No caching layer
-- Users can add caching externally if needed
-
----
-
-## 12. Security
-
-**OAuth2 Tokens:**
-- Never log tokens
-- User responsible for persistence (library doesn't store)
-- Implement refresh: `client.RefreshToken(ctx)`
-
-**Credentials:**
-- Environment variables recommended (see `examples/`)
-- Never commit: `.gitignore` includes `.env`, `token.json`
-- Request minimal scopes: `gmail.DefaultScopes()`
-
----
-
-## 13. Dependencies
-
-**Core:**
-- Go 1.25
-- `github.com/stretchr/testify` v1.11.1 - Testing/mocking
-- `golang.org/x/oauth2` v0.24.0 - OAuth2 flow
-- `google.golang.org/api` v0.214.0 - Gmail API
-
-**Dev Tools:**
-- `golangci-lint` - 27+ linters (see `.golangci.yml`)
-- `pre-commit` - Automated checks (see `.pre-commit-config.yaml`)
-
----
-
-## 14. Quick Reference
+- **Gmail:** See `gmail/` package
+- **Outlook:** See `outlook/` package
 
 **Commands:**
 ```bash
-make test              # All tests
-make test-coverage     # Coverage report (threshold: 74%)
-make pre-commit        # Lint + test (runs on commit)
+make test              # Run all tests
+make test-coverage     # Generate coverage report
+make pre-commit        # Lint + test
 ```
-
-**Documentation:**
-- Setup & Usage: [README.md](README.md)
-- Gmail Guide: [docs/GMAIL.md](docs/GMAIL.md)
-- Examples: [examples/README.md](examples/README.md)
-
-**Architecture Diagrams:**
-- Layer separation: Section 1
-- Data flow: Section 7
-- Directory tree: Section 2
-
----
-
-## 15. Troubleshooting
-
-**"client not connected"**
-→ Call `client.ConnectWithToken(ctx, token)` before operations
-
-**"undefined: gmailtest"**
-→ Import with alias: `gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"`
-
-**Coverage below 74%**
-→ Run `make test-coverage-html` to identify uncovered code
-
-**Linter errors**
-→ Run `make pre-commit` before committing
 
 ---
 
 **Document Version:** 2.0
-**Last Updated:** January 2025
-**Maintained By:** AI-assisted development
+**Last Updated:** February 2025

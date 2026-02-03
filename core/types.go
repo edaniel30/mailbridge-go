@@ -60,14 +60,14 @@ type ListResponse struct {
 
 // Draft represents a message being composed for sending
 type Draft struct {
-	To          []EmailAddress        `json:"to,omitempty"`
-	Cc          []EmailAddress        `json:"cc,omitempty"`
-	Bcc         []EmailAddress        `json:"bcc,omitempty"`
-	Subject     string                `json:"subject"`
-	Body        EmailBody             `json:"body"`
-	Attachments []Attachment          `json:"attachments,omitempty"`
-	ReplyTo     []EmailAddress        `json:"reply_to,omitempty"`
-	Headers     map[string]string     `json:"headers,omitempty"`
+	To          []EmailAddress    `json:"to,omitempty"`
+	Cc          []EmailAddress    `json:"cc,omitempty"`
+	Bcc         []EmailAddress    `json:"bcc,omitempty"`
+	Subject     string            `json:"subject"`
+	Body        EmailBody         `json:"body"`
+	Attachments []Attachment      `json:"attachments,omitempty"`
+	ReplyTo     []EmailAddress    `json:"reply_to,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
 }
 
 // SendOptions contains options for sending emails
@@ -90,8 +90,8 @@ type BatchModifyRequest struct {
 
 // WatchRequest contains options for setting up push notifications
 type WatchRequest struct {
-	TopicName           string   `json:"topic_name"`                     // Required: Google Cloud Pub/Sub topic
-	LabelIDs            []string `json:"label_ids,omitempty"`            // Optional: filter by labels
+	TopicName           string   `json:"topic_name"`                      // Required: Google Cloud Pub/Sub topic
+	LabelIDs            []string `json:"label_ids,omitempty"`             // Optional: filter by labels
 	LabelFilterBehavior string   `json:"label_filter_behavior,omitempty"` // "include" or "exclude"
 }
 
@@ -119,12 +119,12 @@ type HistoryResponse struct {
 
 // HistoryRecord represents a change in the mailbox
 type HistoryRecord struct {
-	ID              string   `json:"id"`
-	Messages        []*Email `json:"messages,omitempty"`
-	MessagesAdded   []*HistoryMessageAdded `json:"messages_added,omitempty"`
+	ID              string                   `json:"id"`
+	Messages        []*Email                 `json:"messages,omitempty"`
+	MessagesAdded   []*HistoryMessageAdded   `json:"messages_added,omitempty"`
 	MessagesDeleted []*HistoryMessageDeleted `json:"messages_deleted,omitempty"`
-	LabelsAdded     []*HistoryLabelChange `json:"labels_added,omitempty"`
-	LabelsRemoved   []*HistoryLabelChange `json:"labels_removed,omitempty"`
+	LabelsAdded     []*HistoryLabelChange    `json:"labels_added,omitempty"`
+	LabelsRemoved   []*HistoryLabelChange    `json:"labels_removed,omitempty"`
 }
 
 // HistoryMessageAdded represents a message that was added
@@ -141,4 +141,13 @@ type HistoryMessageDeleted struct {
 type HistoryLabelChange struct {
 	Message  *Email   `json:"message"`
 	LabelIDs []string `json:"label_ids"`
+}
+
+// Label represents a label/folder across providers (Gmail labels, Outlook folders)
+type Label struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Type           string `json:"type"`            // "system" or "user"
+	TotalMessages  int    `json:"total_messages"`  // Total number of messages
+	UnreadMessages int    `json:"unread_messages"` // Number of unread messages
 }

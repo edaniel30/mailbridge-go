@@ -1,10 +1,10 @@
 package messages
 
 import (
-	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"strings"
 	"time"
 
