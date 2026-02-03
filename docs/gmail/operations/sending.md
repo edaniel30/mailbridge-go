@@ -8,7 +8,7 @@ Send emails with plain text, HTML, and attachments.
 
 ```go
 response, err := client.SendMessage(ctx, &core.Draft{
-    To:      []core.EmailAddress{{Address: "user@example.com"}},
+    To:      []core.EmailAddress{{Email: "user@example.com"}},
     Subject: "Hello from MailBridge",
     Body: &core.EmailBody{
         Plain: "This is a plain text email.",
@@ -22,7 +22,7 @@ fmt.Printf("Sent! ID: %s\n", response.ID)
 
 ```go
 draft := &core.Draft{
-    To:      []core.EmailAddress{{Address: "user@example.com"}},
+    To:      []core.EmailAddress{{Email: "user@example.com"}},
     Subject: "HTML Newsletter",
     Body: &core.EmailBody{
         HTML: `
@@ -39,7 +39,7 @@ client.SendMessage(ctx, draft, nil)
 
 ```go
 draft := &core.Draft{
-    To:      []core.EmailAddress{{Address: "user@example.com"}},
+    To:      []core.EmailAddress{{Email: "user@example.com"}},
     Subject: "Multi-part Email",
     Body: &core.EmailBody{
         Plain: "This is the plain text version",
@@ -54,14 +54,14 @@ draft := &core.Draft{
 ```go
 draft := &core.Draft{
     To: []core.EmailAddress{
-        {Name: "Alice", Address: "alice@example.com"},
-        {Name: "Bob", Address: "bob@example.com"},
+        {Name: "Alice", Email: "alice@example.com"},
+        {Name: "Bob", Email: "bob@example.com"},
     },
     Cc: []core.EmailAddress{
-        {Address: "manager@example.com"},
+        {Email: "manager@example.com"},
     },
     Bcc: []core.EmailAddress{
-        {Address: "archive@example.com"},
+        {Email: "archive@example.com"},
     },
     Subject: "Team Meeting",
     Body: &core.EmailBody{
@@ -78,7 +78,7 @@ original, _ := client.GetMessage(ctx, originalMessageID)
 
 // Send reply
 draft := &core.Draft{
-    To:      []core.EmailAddress{{Address: original.From.Address}},
+    To:      []core.EmailAddress{{Email: original.From.Email}},
     Subject: "Re: " + original.Subject,
     Body: &core.EmailBody{
         Plain: "Thanks for your email!",
@@ -101,10 +101,10 @@ go run main.go
 
 ```go
 // Simple
-{Address: "user@example.com"}
+{Email: "user@example.com"}
 
 // With name
-{Name: "John Doe", Address: "john@example.com"}
+{Name: "John Doe", Email: "john@example.com"}
 // Renders as: John Doe <john@example.com>
 ```
 

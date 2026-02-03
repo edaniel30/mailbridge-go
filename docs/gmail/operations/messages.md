@@ -14,7 +14,7 @@ messages, err := client.ListMessages(ctx, &core.ListOptions{
 })
 
 for _, email := range messages.Emails {
-    fmt.Printf("From: %s\n", email.From.Address)
+    fmt.Printf("From: %s\n", email.From.Email)
     fmt.Printf("Subject: %s\n", email.Subject)
     fmt.Printf("Snippet: %s\n", email.Snippet)
 }
@@ -32,7 +32,7 @@ for _, email := range messages.Emails {
 email, err := client.GetMessage(ctx, messageID)
 
 fmt.Printf("Subject: %s\n", email.Subject)
-fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Address)
+fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Email)
 fmt.Printf("Date: %s\n", email.Date)
 fmt.Printf("Body (HTML): %s\n", email.Body.HTML)
 fmt.Printf("Body (Plain): %s\n", email.Body.Plain)
@@ -47,7 +47,7 @@ for _, att := range email.Attachments {
 
 ```go
 response, err := client.SendMessage(ctx, &core.Draft{
-    To:      []core.EmailAddress{{Address: "user@example.com"}},
+    To:      []core.EmailAddress{{Email: "user@example.com"}},
     Subject: "Hello",
     Body: &core.EmailBody{
         Plain: "This is a plain text email",
@@ -62,10 +62,10 @@ fmt.Printf("Sent! Message ID: %s\n", response.ID)
 ```go
 draft := &core.Draft{
     To: []core.EmailAddress{
-        {Name: "Alice", Address: "alice@example.com"},
-        {Name: "Bob", Address: "bob@example.com"},
+        {Name: "Alice", Email: "alice@example.com"},
+        {Name: "Bob", Email: "bob@example.com"},
     },
-    Cc:      []core.EmailAddress{{Address: "manager@example.com"}},
+    Cc:      []core.EmailAddress{{Email: "manager@example.com"}},
     Subject: "Team Update",
     Body:    &core.EmailBody{Plain: "Meeting at 3pm"},
 }
