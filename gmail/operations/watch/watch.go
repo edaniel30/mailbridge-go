@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/danielrivera/mailbridge-go/core"
-	"github.com/danielrivera/mailbridge-go/gmail/internal"
-	"github.com/danielrivera/mailbridge-go/gmail/operations"
+	"github.com/edaniel30/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/gmail/internal"
+	"github.com/edaniel30/mailbridge-go/gmail/operations"
 	"google.golang.org/api/gmail/v1"
 )
 
@@ -37,9 +37,9 @@ func WatchMailbox(ctx context.Context, service internal.GmailService, req *core.
 }
 
 // StopWatch stops push notifications for the mailbox
-func StopWatch(ctx context.Context, service internal.GmailService) error {
+func StopWatch(ctx context.Context, service internal.GmailService, userID string) error {
 	usersService := service.GetUsersService()
-	call := usersService.Stop(operations.UserIDMe)
+	call := usersService.Stop(userID)
 	err := call.Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to stop watch: %w", err)

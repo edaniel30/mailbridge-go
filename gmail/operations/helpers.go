@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/danielrivera/mailbridge-go/gmail/internal"
+	"github.com/edaniel30/mailbridge-go/gmail/internal"
 )
 
 // UserIDMe is the special user ID that represents the authenticated user in Gmail API.

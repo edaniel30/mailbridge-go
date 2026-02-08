@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/danielrivera/mailbridge-go/gmail/operations"
 	"strings"
 	"time"
 
-	"github.com/danielrivera/mailbridge-go/core"
-	"github.com/danielrivera/mailbridge-go/gmail/internal"
+	"github.com/edaniel30/mailbridge-go/gmail/operations"
+
+	"github.com/edaniel30/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/gmail/internal"
 	"google.golang.org/api/gmail/v1"
 )
 

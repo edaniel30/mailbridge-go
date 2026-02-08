@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danielrivera/mailbridge-go/core"
-	outlooktest "github.com/danielrivera/mailbridge-go/outlook/testing"
+	"github.com/edaniel30/mailbridge-go/core"
+	outlooktest "github.com/edaniel30/mailbridge-go/outlook/testing"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"

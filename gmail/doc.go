@@ -190,22 +190,17 @@
 //
 // Testing:
 //
-// The package provides mocks in gmail/testing for unit testing:
+// The package provides mocks in gmail/testing/mocks for unit testing:
 //
-//	import gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"
+//	import "github.com/edaniel30/mailbridge-go/gmail/testing/mocks"
 //
 //	func TestMyCode(t *testing.T) {
-//	    mockService := &gmailtest.MockGmailService{}
-//	    mockMessages := &gmailtest.MockMessagesService{}
+//	    mockService, mockMessages := mocks.SetupMockMessagesService()
 //
 //	    // Configure mock expectations
-//	    mockService.On("GetUsersService").Return(mockUsers)
 //	    mockMessages.On("List", mock.Anything).Return(expectedMessages, nil)
 //
-//	    // Inject mock
-//	    client.SetService(mockService)
-//
-//	    // Test your code...
+//	    // Inject mock and test your code...
 //	}
 //
 // Rate Limiting:

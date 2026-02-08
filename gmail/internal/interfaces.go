@@ -15,9 +15,16 @@ type GmailService interface {
 type UsersService interface {
 	GetMessagesService() MessagesService
 	GetLabelsService() LabelsService
+	GetProfile(userID string) UsersGetProfileCall
 	Watch(userID string, req *gmail.WatchRequest) UsersWatchCall
 	Stop(userID string) UsersStopCall
 	GetHistory(userID string) UsersHistoryListCall
+}
+
+// UsersGetProfileCall is an interface for users getProfile API calls
+type UsersGetProfileCall interface {
+	Context(ctx context.Context) UsersGetProfileCall
+	Do() (*gmail.Profile, error)
 }
 
 // MessagesService is an interface for gmail messages operations

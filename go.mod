@@ -1,4 +1,4 @@
-module github.com/danielrivera/mailbridge-go
+module github.com/edaniel30/mailbridge-go
 
 go 1.25
 

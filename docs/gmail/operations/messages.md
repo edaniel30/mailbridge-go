@@ -1,41 +1,24 @@
 # Message Operations
 
-Basic operations for listing, reading, and sending Gmail messages.
+Get message details and content from Gmail.
 
-> **Setup required**: [OAuth2 configuration](../gmail/GMAIL.md#setup-oauth2)
-
-## List Messages
-
-```go
-messages, err := client.ListMessages(ctx, &core.ListOptions{
-    MaxResults: 10,
-    Query:      "is:unread",  // Gmail search query
-    LabelIDs:   []string{"INBOX"},
-})
-
-for _, email := range messages.Emails {
-    fmt.Printf("From: %s\n", email.From.Address)
-    fmt.Printf("Subject: %s\n", email.Subject)
-    fmt.Printf("Snippet: %s\n", email.Snippet)
-}
-```
-
-**Options**:
-- `MaxResults`: Number of messages (default: 100)
-- `Query`: Gmail search syntax (e.g., `"from:user@example.com"`)
-- `LabelIDs`: Filter by labels
-- `PageToken`: For pagination
+> **Setup required**: [OAuth2 configuration](../gmail.md#setup-oauth2)
 
 ## Get Message Details
 
+Retrieve a specific email message by its ID.
+
 ```go
 email, err := client.GetMessage(ctx, messageID)
+if err != nil {
+    log.Fatal(err)
+}
 
 fmt.Printf("Subject: %s\n", email.Subject)
-fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Address)
+fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Email)
 fmt.Printf("Date: %s\n", email.Date)
+fmt.Printf("Body (Text): %s\n", email.Body.Text)
 fmt.Printf("Body (HTML): %s\n", email.Body.HTML)
-fmt.Printf("Body (Plain): %s\n", email.Body.Plain)
 
 // Attachments metadata (not downloaded yet)
 for _, att := range email.Attachments {
@@ -43,42 +26,37 @@ for _, att := range email.Attachments {
 }
 ```
 
-## Send Message
+**Returns**:
+- `*core.Email` with complete message details
+- Message ID, thread ID, and snippet
+- Sender, recipients (To, Cc, Bcc)
+- Subject and date
+- Body content (text and HTML)
+- Attachment metadata (use GetAttachment to download)
+- Labels applied to the message
+- Read/starred status
+
+## Example Usage
 
 ```go
-response, err := client.SendMessage(ctx, &core.Draft{
-    To:      []core.EmailAddress{{Address: "user@example.com"}},
-    Subject: "Hello",
-    Body: &core.EmailBody{
-        Plain: "This is a plain text email",
-        HTML:  "<h1>Or send HTML</h1>",
-    },
-}, nil)
+// Get a specific message
+email, err := client.GetMessage(ctx, "18c8f8a7b2e3d4f5")
+if err != nil {
+    log.Fatal(err)
+}
 
-fmt.Printf("Sent! Message ID: %s\n", response.ID)
-```
+fmt.Printf("From: %s\n", email.From.Email)
+fmt.Printf("Subject: %s\n", email.Subject)
+fmt.Printf("Body: %s\n", email.Body.Text)
 
-**With multiple recipients**:
-```go
-draft := &core.Draft{
-    To: []core.EmailAddress{
-        {Name: "Alice", Address: "alice@example.com"},
-        {Name: "Bob", Address: "bob@example.com"},
-    },
-    Cc:      []core.EmailAddress{{Address: "manager@example.com"}},
-    Subject: "Team Update",
-    Body:    &core.EmailBody{Plain: "Meeting at 3pm"},
+// Check if message has attachments
+if len(email.Attachments) > 0 {
+    fmt.Printf("Has %d attachment(s)\n", len(email.Attachments))
 }
 ```
 
-## Complete Examples
+## Related Operations
 
-- **Basic usage**: [`examples/gmail`](../../examples/gmail/)
-- **Sending emails**: [`examples/gmail-send`](../../examples/gmail-send/)
-- **Download attachments**: [`examples/gmail-attachments`](../../examples/gmail-attachments/)
-
-## Related
-
-- [Attachments](./attachments.md) - Download files
-- [Search](./search.md) - Advanced queries
-- [Delete](./delete.md) - Remove messages
+- [Attachments](./attachments.md) - Download files from messages
+- [Delete](./delete.md) - Trash or permanently delete messages
+- [Notifications](./notifications.md) - Monitor mailbox for new messages

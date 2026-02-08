@@ -3,12 +3,15 @@ package gmail
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
 
-	"github.com/danielrivera/mailbridge-go/core"
-	"github.com/danielrivera/mailbridge-go/gmail/internal"
-	"github.com/danielrivera/mailbridge-go/gmail/operations/labels"
-	"github.com/danielrivera/mailbridge-go/gmail/operations/messages"
-	"github.com/danielrivera/mailbridge-go/gmail/operations/watch"
+	"github.com/edaniel30/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/gmail/internal"
+	"github.com/edaniel30/mailbridge-go/gmail/operations/labels"
+	"github.com/edaniel30/mailbridge-go/gmail/operations/messages"
+	"github.com/edaniel30/mailbridge-go/gmail/operations/watch"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
@@ -50,17 +53,9 @@ func (c *Client) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, 
 	return token, nil
 }
 
-// SetToken sets the OAuth2 token for the client
-func (c *Client) SetToken(token *oauth2.Token) {
+// ConnectWithToken establishes connection using a provided token
+func (c *Client) ConnectWithToken(ctx context.Context, token *oauth2.Token) error {
 	c.token = token
-}
-
-// Connect establishes connection to Gmail API using the stored token
-func (c *Client) Connect(ctx context.Context) error {
-	if c.token == nil {
-		return fmt.Errorf("no token available, please authenticate first")
-	}
-
 	httpClient := c.oauth2Config.Client(ctx, c.token)
 
 	service, err := gmail.NewService(ctx, option.WithHTTPClient(httpClient))
@@ -72,15 +67,16 @@ func (c *Client) Connect(ctx context.Context) error {
 	return nil
 }
 
-// SetService sets the Gmail service (used for testing)
-func (c *Client) SetService(service internal.GmailService) {
-	c.service = service
-}
+// ConnectWithHTTPClient establishes connection using a custom HTTP client
+// This allows using custom token sources (e.g., with automatic token refresh and persistence)
+func (c *Client) ConnectWithHTTPClient(ctx context.Context, httpClient *http.Client) error {
+	service, err := gmail.NewService(ctx, option.WithHTTPClient(httpClient))
+	if err != nil {
+		return fmt.Errorf("failed to create gmail service: %w", err)
+	}
 
-// ConnectWithToken establishes connection using a provided token
-func (c *Client) ConnectWithToken(ctx context.Context, token *oauth2.Token) error {
-	c.SetToken(token)
-	return c.Connect(ctx)
+	c.service = internal.NewRealGmailService(service)
+	return nil
 }
 
 // IsConnected returns true if the client is connected to Gmail API
@@ -88,20 +84,25 @@ func (c *Client) IsConnected() bool {
 	return c.service != nil
 }
 
-// ensureConnected checks if the client is connected and returns an error if not
-func (c *Client) ensureConnected() error {
-	if !c.IsConnected() {
-		return core.ErrNotConnected
-	}
-	return nil
-}
-
 // GetToken returns the current OAuth2 token
 func (c *Client) GetToken() *oauth2.Token {
 	return c.token
 }
 
-// RefreshToken refreshes the OAuth2 token if needed
+// SetToken sets the OAuth2 token without establishing connection
+func (c *Client) SetToken(token *oauth2.Token) {
+	c.token = token
+}
+
+// Connect establishes connection using the current token
+func (c *Client) Connect(ctx context.Context) error {
+	if c.token == nil {
+		return fmt.Errorf("no token available, call SetToken or ExchangeCode first")
+	}
+	return c.ConnectWithToken(ctx, c.token)
+}
+
+// RefreshToken refreshes the OAuth2 token
 func (c *Client) RefreshToken(ctx context.Context) (*oauth2.Token, error) {
 	if c.token == nil {
 		return nil, fmt.Errorf("no token to refresh")
@@ -114,13 +115,59 @@ func (c *Client) RefreshToken(ctx context.Context) (*oauth2.Token, error) {
 	}
 
 	c.token = newToken
+	return newToken, nil
+}
 
-	// Reconnect with new token
-	if err := c.Connect(ctx); err != nil {
-		return nil, fmt.Errorf("failed to reconnect after token refresh: %w", err)
+// ensureConnected checks if the client is connected and returns an error if not
+func (c *Client) ensureConnected() error {
+	if !c.IsConnected() {
+		return core.ErrNotConnected
+	}
+	return nil
+}
+
+// RevokeToken revokes the OAuth2 token in Google's servers
+// This method accepts the token as a parameter to avoid modifying client state
+func (c *Client) RevokeToken(ctx context.Context, token *oauth2.Token) error {
+	if token == nil {
+		return fmt.Errorf("no token to revoke")
 	}
 
-	return newToken, nil
+	// Use access token for revocation (Google accepts both access_token and refresh_token)
+	tokenToRevoke := token.AccessToken
+	if tokenToRevoke == "" && token.RefreshToken != "" {
+		tokenToRevoke = token.RefreshToken
+	}
+
+	if tokenToRevoke == "" {
+		return fmt.Errorf("no valid token to revoke")
+	}
+
+	// Google's token revocation endpoint
+	revokeURL := fmt.Sprintf("https://oauth2.googleapis.com/revoke?token=%s", tokenToRevoke)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", revokeURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create revoke request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Google returns 200 OK if successful, or if token is already invalid/revoked
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("token revocation failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }
 
 // Close closes the Gmail client and cleans up resources
@@ -130,15 +177,28 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// Message operations - delegate to operations/messages package
+// UserProfile represents the Gmail user's profile information
+type UserProfile struct {
+	EmailAddress string
+}
 
-// ListMessages lists messages from Gmail
-func (c *Client) ListMessages(ctx context.Context, opts *core.ListOptions) (*core.ListResponse, error) {
+// GetUserProfile retrieves the authenticated user's profile
+func (c *Client) GetUserProfile(ctx context.Context) (*UserProfile, error) {
 	if err := c.ensureConnected(); err != nil {
 		return nil, err
 	}
-	return messages.ListMessages(ctx, c.service, opts)
+
+	profile, err := c.service.GetUsersService().GetProfile("me").Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user profile: %w", err)
+	}
+
+	return &UserProfile{
+		EmailAddress: profile.EmailAddress,
+	}, nil
 }
+
+// Message operations
 
 // GetMessage retrieves a specific message by ID
 func (c *Client) GetMessage(ctx context.Context, messageID string) (*core.Email, error) {
@@ -156,70 +216,12 @@ func (c *Client) GetAttachment(ctx context.Context, messageID, attachmentID stri
 	return messages.GetAttachment(ctx, c.service, messageID, attachmentID)
 }
 
-// SendMessage sends an email message
-func (c *Client) SendMessage(ctx context.Context, draft *core.Draft, opts *core.SendOptions) (*core.SendResponse, error) {
-	if err := c.ensureConnected(); err != nil {
-		return nil, err
-	}
-	return messages.SendMessage(ctx, c.service, draft, opts)
-}
-
-// Label operations - delegate to operations/labels package
-
-// ListLabels lists all labels in the user's mailbox
-func (c *Client) ListLabels(ctx context.Context) ([]*labels.Label, error) {
-	if err := c.ensureConnected(); err != nil {
-		return nil, err
-	}
-	return labels.ListLabels(ctx, c.service)
-}
-
-// GetLabel gets a specific label by ID
-func (c *Client) GetLabel(ctx context.Context, labelID string) (*labels.Label, error) {
-	if err := c.ensureConnected(); err != nil {
-		return nil, err
-	}
-	return labels.GetLabel(ctx, c.service, labelID)
-}
-
-// FindLabelByName finds a label by its name
-func (c *Client) FindLabelByName(ctx context.Context, name string) (*labels.Label, error) {
-	if err := c.ensureConnected(); err != nil {
-		return nil, err
-	}
-	return labels.FindLabelByName(ctx, c.service, name)
-}
-
 // CreateLabel creates a new label (folder)
 func (c *Client) CreateLabel(ctx context.Context, name string) (*labels.Label, error) {
 	if err := c.ensureConnected(); err != nil {
 		return nil, err
 	}
 	return labels.CreateLabel(ctx, c.service, name)
-}
-
-// DeleteLabel deletes a label
-func (c *Client) DeleteLabel(ctx context.Context, labelID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.DeleteLabel(ctx, c.service, labelID)
-}
-
-// AddLabelToMessage adds a label to a message
-func (c *Client) AddLabelToMessage(ctx context.Context, messageID string, labelID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.AddLabelToMessage(ctx, c.service, messageID, labelID)
-}
-
-// RemoveLabelFromMessage removes a label from a message
-func (c *Client) RemoveLabelFromMessage(ctx context.Context, messageID string, labelID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.RemoveLabelFromMessage(ctx, c.service, messageID, labelID)
 }
 
 // MarkAsRead marks a message as read
@@ -230,14 +232,6 @@ func (c *Client) MarkAsRead(ctx context.Context, messageID string) error {
 	return labels.MarkAsRead(ctx, c.service, messageID)
 }
 
-// MarkAsUnread marks a message as unread
-func (c *Client) MarkAsUnread(ctx context.Context, messageID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.MarkAsUnread(ctx, c.service, messageID)
-}
-
 // MoveMessageToFolder moves a message to a specific folder/label
 func (c *Client) MoveMessageToFolder(ctx context.Context, messageID string, folderName string) error {
 	if err := c.ensureConnected(); err != nil {
@@ -246,77 +240,7 @@ func (c *Client) MoveMessageToFolder(ctx context.Context, messageID string, fold
 	return labels.MoveMessageToFolder(ctx, c.service, messageID, folderName)
 }
 
-// TrashMessage moves a message to trash (reversible)
-func (c *Client) TrashMessage(ctx context.Context, messageID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.TrashMessage(ctx, c.service, messageID)
-}
-
-// UntrashMessage removes a message from trash
-func (c *Client) UntrashMessage(ctx context.Context, messageID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.UntrashMessage(ctx, c.service, messageID)
-}
-
-// BatchTrashMessages moves multiple messages to trash
-func (c *Client) BatchTrashMessages(ctx context.Context, messageIDs []string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.BatchTrashMessages(ctx, c.service, messageIDs)
-}
-
-// DeleteMessage permanently deletes a message (not reversible)
-func (c *Client) DeleteMessage(ctx context.Context, messageID string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return messages.DeleteMessage(ctx, c.service, messageID)
-}
-
-// BatchDeleteMessages permanently deletes multiple messages
-func (c *Client) BatchDeleteMessages(ctx context.Context, messageIDs []string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return messages.BatchDeleteMessages(ctx, c.service, messageIDs)
-}
-
-// BatchModifyMessages modifies labels on multiple messages
-func (c *Client) BatchModifyMessages(ctx context.Context, req *core.BatchModifyRequest) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.BatchModifyMessages(ctx, c.service, req.MessageIDs, req.AddLabelIDs, req.RemoveLabelIDs)
-}
-
-// BatchMarkAsRead marks multiple messages as read
-func (c *Client) BatchMarkAsRead(ctx context.Context, messageIDs []string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.BatchMarkAsRead(ctx, c.service, messageIDs)
-}
-
-// BatchMarkAsUnread marks multiple messages as unread
-func (c *Client) BatchMarkAsUnread(ctx context.Context, messageIDs []string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.BatchMarkAsUnread(ctx, c.service, messageIDs)
-}
-
-// BatchMoveToFolder moves multiple messages to a specific folder
-func (c *Client) BatchMoveToFolder(ctx context.Context, messageIDs []string, folderName string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-	return labels.BatchMoveToFolder(ctx, c.service, messageIDs, folderName)
-}
+// Watch operations for push notifications
 
 // WatchMailbox sets up push notifications for the mailbox
 func (c *Client) WatchMailbox(ctx context.Context, req *core.WatchRequest) (*core.WatchResponse, error) {
@@ -327,11 +251,12 @@ func (c *Client) WatchMailbox(ctx context.Context, req *core.WatchRequest) (*cor
 }
 
 // StopWatch stops push notifications for the mailbox
-func (c *Client) StopWatch(ctx context.Context) error {
+// userID can be an email address or "me" for the currently authenticated user
+func (c *Client) StopWatch(ctx context.Context, userID string) error {
 	if err := c.ensureConnected(); err != nil {
 		return err
 	}
-	return watch.StopWatch(ctx, c.service)
+	return watch.StopWatch(ctx, c.service, userID)
 }
 
 // GetHistory retrieves mailbox history starting from a history ID

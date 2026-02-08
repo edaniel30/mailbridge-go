@@ -16,8 +16,7 @@ Complete guide for using MailBridge with Gmail.
 
 ```go
 import (
-    "github.com/danielrivera/mailbridge-go/core"
-    "github.com/danielrivera/mailbridge-go/gmail"
+    "github.com/edaniel30/mailbridge-go/gmail"
 )
 
 // 1. Configure
@@ -40,11 +39,9 @@ token, _ := client.ExchangeCode(ctx, code)
 // 4. Connect
 client.ConnectWithToken(ctx, token)
 
-// 5. Use it
-messages, _ := client.ListMessages(ctx, &core.ListOptions{
-    MaxResults: 10,
-    Query:      "is:unread",
-})
+// 5. Get a message
+email, _ := client.GetMessage(ctx, messageID)
+fmt.Printf("Subject: %s\n", email.Subject)
 ```
 
 
@@ -54,25 +51,24 @@ messages, _ := client.ListMessages(ctx, &core.ListOptions{
 
 | Operation | Method | Description |
 |-----------|--------|-------------|
-| **List Messages** | `ListMessages(ctx, opts)` | List/search emails with filters |
 | **Get Message** | `GetMessage(ctx, messageID)` | Get full email details |
 | **Get Attachment** | `GetAttachment(ctx, messageID, attachmentID)` | Download attachment data |
-| **Send Message** | `SendMessage(ctx, draft, opts)` | Send email (text/HTML/attachments) |
 | **Mark as Read** | `MarkAsRead(ctx, messageID)` | Mark email as read |
-| **Mark as Unread** | `MarkAsUnread(ctx, messageID)` | Mark email as unread |
-| **Move to Folder** | `MoveMessageToFolder(ctx, messageID, folder)` | Move email to folder (creates if needed) |
+| **Move to Folder** | `MoveMessageToFolder(ctx, messageID, folder)` | Move email to folder (creates label if needed) |
 
 ### 🏷️ Label Operations
 
 | Operation | Method | Description |
 |-----------|--------|-------------|
-| **List Labels** | `ListLabels(ctx)` | Get all labels/folders |
-| **Get Label** | `GetLabel(ctx, labelID)` | Get label details |
-| **Find Label** | `FindLabelByName(ctx, name)` | Find label by name |
 | **Create Label** | `CreateLabel(ctx, name)` | Create new label/folder |
-| **Delete Label** | `DeleteLabel(ctx, labelID)` | Delete label |
-| **Add Label** | `AddLabelToMessage(ctx, messageID, labelID)` | Add label to message |
-| **Remove Label** | `RemoveLabelFromMessage(ctx, messageID, labelID)` | Remove label from message |
+
+### 🔔 Watch Operations
+
+| Operation | Method | Description |
+|-----------|--------|-------------|
+| **Watch Mailbox** | `WatchMailbox(ctx, req)` | Set up push notifications |
+| **Stop Watch** | `StopWatch(ctx, userID)` | Stop push notifications |
+| **Get History** | `GetHistory(ctx, req)` | Get mailbox changes |
 
 ### 🔐 Authentication Operations
 
@@ -83,6 +79,8 @@ messages, _ := client.ListMessages(ctx, &core.ListOptions{
 | **Connect** | `ConnectWithToken(ctx, token)` | Connect using saved token |
 | **Refresh Token** | `RefreshToken(ctx)` | Refresh expired token |
 | **Get Token** | `GetToken()` | Get current token |
+| **Set Token** | `SetToken(token)` | Set token without connecting |
+| **Revoke Token** | `RevokeToken(ctx, token)` | Revoke OAuth2 token |
 
 
 ## Setup OAuth2
@@ -124,18 +122,16 @@ export GMAIL_CLIENT_SECRET="your-secret"
 Detailed guides for specific operations:
 
 ### Core Operations
-- **[Messages](./operations/messages.md)** - List, read, and send emails
+- **[Messages](./operations/messages.md)** - Get message details
 - **[Attachments](./operations/attachments.md)** - Download files from emails
-- **[Sending](./operations/sending.md)** - Send emails with HTML/attachments
-- **[Search](./operations/search.md)** - Advanced queries with QueryBuilder
 - **[Delete](./operations/delete.md)** - Trash and permanently delete messages
 
 ### Advanced Features
-- **[Push Notifications](../operations/notifications.md)** - Real-time mailbox monitoring with Pub/Sub
+- **[Push Notifications](./operations/notifications.md)** - Real-time mailbox monitoring with Pub/Sub
 
 ## Usage Examples
 
-See [examples/gmail/](../../examples/gmail/) for a complete, runnable example demonstrating all features.
+See [examples/gmail/](../../examples/gmail/) for a complete, runnable example demonstrating OAuth2 authentication.
 
 ### Running the Example
 
@@ -151,54 +147,66 @@ go run main.go
 
 **First Run:** You'll be prompted to authorize via browser. The token is saved to `token.json` for future use.
 
-**What it demonstrates:**
-- OAuth2 authentication with token persistence
-- Listing recent and unread messages
-- Advanced search with query builder
-- Getting message details
-- Managing labels
-- Downloading attachments (optional)
+### Basic Usage Examples
 
-### Query Builder Examples
-
+#### Get Message Details
 ```go
-// Search for unread emails from boss with PDF attachments
-query := gmail.NewQueryBuilder().
-    IsUnread().
-    From("boss@company.com").
-    Filename("pdf").
-    HasAttachment().
-    Build()
+email, err := client.GetMessage(ctx, messageID)
+if err != nil {
+    log.Fatal(err)
+}
 
-messages, err := client.ListMessages(ctx, &core.ListOptions{
-    Query:      query,
-    MaxResults: 10,
-})
+fmt.Printf("Subject: %s\n", email.Subject)
+fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Email)
+fmt.Printf("Body: %s\n", email.Body.Text)
 ```
 
-**Available methods:**
-- `IsUnread()`, `IsRead()`, `IsStarred()`, `IsImportant()`
-- `From(email)`, `To(email)`, `Subject(text)`
-- `HasAttachment()`, `Filename(extension)`
-- `After(date)`, `Before(date)`
-- `InInbox()`, `InSent()`, `InDraft()`
-- `Category(name)`, `LargerThan(size)`, `SmallerThan(size)`
-- `NOT()`, `OR()`
+#### Download Attachment
+```go
+data, err := client.GetAttachment(ctx, messageID, attachmentID)
+if err != nil {
+    log.Fatal(err)
+}
 
-### Common Search Queries
+err = os.WriteFile("attachment.pdf", data, 0644)
+```
 
-Use in `ListOptions.Query`:
+#### Mark as Read
+```go
+err := client.MarkAsRead(ctx, messageID)
+```
+
+#### Move to Folder
+```go
+// Creates label "Work" if it doesn't exist
+err := client.MoveMessageToFolder(ctx, messageID, "Work")
+```
+
+#### Create Label
+```go
+label, err := client.CreateLabel(ctx, "Important")
+fmt.Printf("Created label: %s (ID: %s)\n", label.Name, label.ID)
+```
+
+### Gmail Search Queries
+
+You can use Gmail's native search syntax directly:
 
 ```go
-"is:unread"                          // Unread only
-"is:starred"                         // Starred
-"from:boss@company.com"              // From sender
-"subject:invoice"                    // Subject contains
-"has:attachment"                     // Has attachments
-"after:2024/01/01"                   // After date
-"is:unread from:boss@company.com"    // Combined
-"in:inbox -label:processed"          // Exclude label
+// Get message IDs using Gmail's search operators
+// Note: Use Gmail API directly for searching, then use GetMessage() for details
 ```
+
+**Common search operators:**
+- `is:unread` - Unread messages
+- `is:starred` - Starred messages
+- `from:user@example.com` - From specific sender
+- `subject:invoice` - Subject contains text
+- `has:attachment` - Has attachments
+- `after:2024/01/01` - After specific date
+- `label:INBOX` - In specific label
+
+See [Gmail Search Operators](https://support.google.com/mail/answer/7190) for complete syntax.
 
 
 ## Rate Limits & Best Practices
@@ -208,10 +216,9 @@ Use in `ListOptions.Query`:
 - Queries per user/sec: **250**
 
 **Best Practices:**
-- ✅ Batch operations when possible
-- ✅ Cache label IDs
 - ✅ Use pagination for large datasets
 - ✅ Implement exponential backoff on errors
+- ✅ Cache message data when possible
 
 **Security:**
 - ✅ Use environment variables for credentials
@@ -227,4 +234,4 @@ Use in `ListOptions.Query`:
 - 🔐 [OAuth2 for Desktop Apps](https://developers.google.com/identity/protocols/oauth2/native-app)
 - 🔍 [Gmail Search Operators](https://support.google.com/mail/answer/7190)
 - 📊 [API Quotas & Limits](https://developers.google.com/gmail/api/reference/quota)
-- 💻 [Working Examples](../examples/)
+- 💻 [Working Examples](../../examples/gmail/)

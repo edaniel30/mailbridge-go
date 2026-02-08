@@ -1,7 +1,7 @@
 package gmail
 
 import (
-	"github.com/danielrivera/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/core"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
