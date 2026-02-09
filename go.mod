@@ -1,6 +1,6 @@
 module github.com/edaniel30/mailbridge-go
 
-go 1.25
+go 1.25.7
 
 require (
 	github.com/microsoft/kiota-abstractions-go v1.9.3

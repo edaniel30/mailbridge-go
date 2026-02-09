@@ -58,5 +58,4 @@ if len(email.Attachments) > 0 {
 ## Related Operations
 
 - [Attachments](./attachments.md) - Download files from messages
-- [Delete](./delete.md) - Trash or permanently delete messages
 - [Notifications](./notifications.md) - Monitor mailbox for new messages

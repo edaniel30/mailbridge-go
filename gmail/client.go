@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/edaniel30/mailbridge-go/core"
@@ -103,6 +105,7 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 // RefreshToken refreshes the OAuth2 token
+// If the client is already connected, it will reconnect with the new token
 func (c *Client) RefreshToken(ctx context.Context) (*oauth2.Token, error) {
 	if c.token == nil {
 		return nil, fmt.Errorf("no token to refresh")
@@ -115,6 +118,14 @@ func (c *Client) RefreshToken(ctx context.Context) (*oauth2.Token, error) {
 	}
 
 	c.token = newToken
+
+	// Reconnect if already connected to use the refreshed token
+	if c.service != nil {
+		if err := c.ConnectWithToken(ctx, newToken); err != nil {
+			return nil, fmt.Errorf("failed to reconnect with refreshed token: %w", err)
+		}
+	}
+
 	return newToken, nil
 }
 
@@ -144,9 +155,12 @@ func (c *Client) RevokeToken(ctx context.Context, token *oauth2.Token) error {
 	}
 
 	// Google's token revocation endpoint
-	revokeURL := fmt.Sprintf("https://oauth2.googleapis.com/revoke?token=%s", tokenToRevoke)
+	revokeURL := "https://oauth2.googleapis.com/revoke"
 
-	req, err := http.NewRequestWithContext(ctx, "POST", revokeURL, nil)
+	// Send token in POST body (not URL) to avoid leaking in logs
+	data := url.Values{}
+	data.Set("token", tokenToRevoke)
+	req, err := http.NewRequestWithContext(ctx, "POST", revokeURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create revoke request: %w", err)
 	}

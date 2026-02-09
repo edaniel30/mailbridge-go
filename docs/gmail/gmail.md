@@ -124,7 +124,6 @@ Detailed guides for specific operations:
 ### Core Operations
 - **[Messages](./operations/messages.md)** - Get message details
 - **[Attachments](./operations/attachments.md)** - Download files from emails
-- **[Delete](./operations/delete.md)** - Trash and permanently delete messages
 
 ### Advanced Features
 - **[Push Notifications](./operations/notifications.md)** - Real-time mailbox monitoring with Pub/Sub
