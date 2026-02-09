@@ -16,6 +16,7 @@ if err != nil {
 
 fmt.Printf("Subject: %s\n", email.Subject)
 fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Email)
+fmt.Printf("From: %s <%s>\n", email.From.Name, email.From.Email)
 fmt.Printf("Date: %s\n", email.Date)
 fmt.Printf("Body (Text): %s\n", email.Body.Text)
 fmt.Printf("Body (HTML): %s\n", email.Body.HTML)
