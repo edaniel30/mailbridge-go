@@ -10,7 +10,7 @@ import (
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/users"
 
-	"github.com/danielrivera/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/core"
 )
 
 // ListMessages retrieves a list of email messages from the user's mailbox.

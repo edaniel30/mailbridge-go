@@ -3,7 +3,7 @@ package testing
 import (
 	"context"
 
-	"github.com/danielrivera/mailbridge-go/outlook/internal"
+	"github.com/edaniel30/mailbridge-go/outlook/internal"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/users"
 	"github.com/stretchr/testify/mock"

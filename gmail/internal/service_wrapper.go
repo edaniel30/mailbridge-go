@@ -33,6 +33,10 @@ func (r *realUsersService) GetLabelsService() LabelsService {
 	return &realLabelsService{labels: r.users.Labels}
 }
 
+func (r *realUsersService) GetProfile(userID string) UsersGetProfileCall {
+	return &realUsersGetProfileCall{call: r.users.GetProfile(userID)}
+}
+
 func (r *realUsersService) Watch(userID string, req *gmail.WatchRequest) UsersWatchCall {
 	return &realUsersWatchCall{call: r.users.Watch(userID, req)}
 }
@@ -346,5 +350,18 @@ func (r *realUsersHistoryListCall) Context(ctx context.Context) UsersHistoryList
 }
 
 func (r *realUsersHistoryListCall) Do() (*gmail.ListHistoryResponse, error) {
+	return r.call.Do()
+}
+
+type realUsersGetProfileCall struct {
+	call *gmail.UsersGetProfileCall
+}
+
+func (r *realUsersGetProfileCall) Context(ctx context.Context) UsersGetProfileCall {
+	r.call = r.call.Context(ctx)
+	return r
+}
+
+func (r *realUsersGetProfileCall) Do() (*gmail.Profile, error) {
 	return r.call.Do()
 }
