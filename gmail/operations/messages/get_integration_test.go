@@ -5,15 +5,15 @@ import (
 	"errors"
 	"testing"
 
-	gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"
+	"github.com/edaniel30/mailbridge-go/gmail/testing/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/gmail/v1"
 )
 
 func TestGetMessage_Success(t *testing.T) {
-	mockGmailService, mockMessagesService := setupMockMessagesService()
-	mockMessagesGetCall := &gmailtest.MockMessagesGetCall{}
+	mockGmailService, mockMessagesService := mocks.SetupMockMessagesService()
+	mockMessagesGetCall := &mocks.MockMessagesGetCall{}
 
 	mockMessagesService.On("Get", "me", "msg-123").Return(mockMessagesGetCall)
 	mockMessagesGetCall.On("Format", "full").Return(mockMessagesGetCall)
@@ -48,8 +48,8 @@ func TestGetMessage_Success(t *testing.T) {
 }
 
 func TestGetMessage_APIError(t *testing.T) {
-	mockGmailService, mockMessagesService := setupMockMessagesService()
-	mockMessagesGetCall := &gmailtest.MockMessagesGetCall{}
+	mockGmailService, mockMessagesService := mocks.SetupMockMessagesService()
+	mockMessagesGetCall := &mocks.MockMessagesGetCall{}
 
 	mockMessagesService.On("Get", "me", "msg-123").Return(mockMessagesGetCall)
 	mockMessagesGetCall.On("Format", "full").Return(mockMessagesGetCall)

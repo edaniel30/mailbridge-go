@@ -2,7 +2,7 @@
 
 Monitor Gmail mailbox changes in real-time using Google Cloud Pub/Sub.
 
-> **Setup required**: [OAuth2 configuration](../gmail/GMAIL.md#setup-oauth2)
+> **Setup required**: [OAuth2 configuration](../gmail.md#setup-oauth2)
 
 ## What You Get
 
@@ -36,7 +36,7 @@ gcloud pubsub topics add-iam-policy-binding gmail-notifications \
   --role=roles/pubsub.publisher
 ```
 
-**Web Console**: Pub/Sub � Create Topic (`gmail-notifications`) � Permissions � Add Principal: `gmail-api-push@system.gserviceaccount.com` with role `Pub/Sub Publisher`
+**Web Console**: Pub/Sub - Create Topic (`gmail-notifications`) - Permissions - Add Principal: `gmail-api-push@system.gserviceaccount.com` with role `Pub/Sub Publisher`
 
 ### 2. Authentication for Pub/Sub Client
 
@@ -98,7 +98,8 @@ subscriber.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
 ### Stop Notifications
 
 ```go
-err := client.StopWatch(ctx)
+// Use "me" for currently authenticated user
+err := client.StopWatch(ctx, "me")
 ```
 
 ## GetHistory Explained

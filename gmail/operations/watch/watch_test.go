@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/danielrivera/mailbridge-go/core"
-	gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"
+	"github.com/edaniel30/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/gmail/testing/mocks"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/gmail/v1"
 )
@@ -15,9 +15,9 @@ func TestWatchMailbox_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockWatchCall := &gmailtest.MockUsersWatchCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockWatchCall := &mocks.MockUsersWatchCall{}
 
 	// Setup expectations
 	mockService.On("GetUsersService").Return(mockUsersService)
@@ -51,7 +51,7 @@ func TestWatchMailbox_Success(t *testing.T) {
 
 func TestWatchMailbox_EmptyTopic(t *testing.T) {
 	ctx := context.Background()
-	mockService := &gmailtest.MockGmailService{}
+	mockService := &mocks.MockGmailService{}
 
 	resp, err := WatchMailbox(ctx, mockService, &core.WatchRequest{
 		TopicName: "",
@@ -65,9 +65,9 @@ func TestWatchMailbox_EmptyTopic(t *testing.T) {
 func TestWatchMailbox_APIError(t *testing.T) {
 	ctx := context.Background()
 
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockWatchCall := &gmailtest.MockUsersWatchCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockWatchCall := &mocks.MockUsersWatchCall{}
 
 	mockService.On("GetUsersService").Return(mockUsersService)
 	mockUsersService.On("Watch", "me", &gmail.WatchRequest{
@@ -88,16 +88,16 @@ func TestWatchMailbox_APIError(t *testing.T) {
 func TestStopWatch_Success(t *testing.T) {
 	ctx := context.Background()
 
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockStopCall := &gmailtest.MockUsersStopCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockStopCall := &mocks.MockUsersStopCall{}
 
 	mockService.On("GetUsersService").Return(mockUsersService)
-	mockUsersService.On("Stop", "me").Return(mockStopCall)
+	mockUsersService.On("Stop", "user@example.com").Return(mockStopCall)
 	mockStopCall.On("Context", ctx).Return(mockStopCall)
 	mockStopCall.On("Do").Return(nil)
 
-	err := StopWatch(ctx, mockService)
+	err := StopWatch(ctx, mockService, "user@example.com")
 
 	assert.NoError(t, err)
 	mockService.AssertExpectations(t)
@@ -108,16 +108,16 @@ func TestStopWatch_Success(t *testing.T) {
 func TestStopWatch_APIError(t *testing.T) {
 	ctx := context.Background()
 
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockStopCall := &gmailtest.MockUsersStopCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockStopCall := &mocks.MockUsersStopCall{}
 
 	mockService.On("GetUsersService").Return(mockUsersService)
-	mockUsersService.On("Stop", "me").Return(mockStopCall)
+	mockUsersService.On("Stop", "user@example.com").Return(mockStopCall)
 	mockStopCall.On("Context", ctx).Return(mockStopCall)
 	mockStopCall.On("Do").Return(errors.New("API error"))
 
-	err := StopWatch(ctx, mockService)
+	err := StopWatch(ctx, mockService, "user@example.com")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to stop watch")
@@ -126,9 +126,9 @@ func TestStopWatch_APIError(t *testing.T) {
 func TestGetHistory_Success(t *testing.T) {
 	ctx := context.Background()
 
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockHistoryCall := &gmailtest.MockUsersHistoryListCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockHistoryCall := &mocks.MockUsersHistoryListCall{}
 
 	mockService.On("GetUsersService").Return(mockUsersService)
 	mockUsersService.On("GetHistory", "me").Return(mockHistoryCall)
@@ -166,7 +166,7 @@ func TestGetHistory_Success(t *testing.T) {
 
 func TestGetHistory_EmptyStartHistoryID(t *testing.T) {
 	ctx := context.Background()
-	mockService := &gmailtest.MockGmailService{}
+	mockService := &mocks.MockGmailService{}
 
 	resp, err := GetHistory(ctx, mockService, &core.HistoryRequest{
 		StartHistoryID: "",
@@ -179,7 +179,7 @@ func TestGetHistory_EmptyStartHistoryID(t *testing.T) {
 
 func TestGetHistory_InvalidHistoryID(t *testing.T) {
 	ctx := context.Background()
-	mockService := &gmailtest.MockGmailService{}
+	mockService := &mocks.MockGmailService{}
 
 	resp, err := GetHistory(ctx, mockService, &core.HistoryRequest{
 		StartHistoryID: "invalid",
@@ -193,9 +193,9 @@ func TestGetHistory_InvalidHistoryID(t *testing.T) {
 func TestGetHistory_WithOptions(t *testing.T) {
 	ctx := context.Background()
 
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockHistoryCall := &gmailtest.MockUsersHistoryListCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockHistoryCall := &mocks.MockUsersHistoryListCall{}
 
 	mockService.On("GetUsersService").Return(mockUsersService)
 	mockUsersService.On("GetHistory", "me").Return(mockHistoryCall)
@@ -243,9 +243,9 @@ func TestConvertBasicMessage(t *testing.T) {
 func TestGetHistory_CompleteHistory(t *testing.T) {
 	ctx := context.Background()
 
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockHistoryCall := &gmailtest.MockUsersHistoryListCall{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockHistoryCall := &mocks.MockUsersHistoryListCall{}
 
 	mockService.On("GetUsersService").Return(mockUsersService)
 	mockUsersService.On("GetHistory", "me").Return(mockHistoryCall)

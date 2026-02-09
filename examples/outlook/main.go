@@ -43,8 +43,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danielrivera/mailbridge-go/core"
-	"github.com/danielrivera/mailbridge-go/outlook"
+	"github.com/edaniel30/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/outlook"
 	"golang.org/x/oauth2"
 )
 

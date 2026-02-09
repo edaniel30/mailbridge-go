@@ -14,7 +14,7 @@ import (
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 	"golang.org/x/oauth2"
 
-	"github.com/danielrivera/mailbridge-go/outlook/internal"
+	"github.com/edaniel30/mailbridge-go/outlook/internal"
 )
 
 // Client provides access to Microsoft Outlook/Exchange email operations via Microsoft Graph API.

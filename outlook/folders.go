@@ -7,7 +7,7 @@ import (
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/users"
 
-	"github.com/danielrivera/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/core"
 )
 
 // ListFolders retrieves all mail folders (similar to Gmail labels).

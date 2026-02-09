@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	gmailtest "github.com/danielrivera/mailbridge-go/gmail/testing"
+	"github.com/edaniel30/mailbridge-go/gmail/testing/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -78,9 +78,9 @@ func TestBatchOperation_AllFailed(t *testing.T) {
 
 func TestGetMessagesService(t *testing.T) {
 	// Create mocks
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockMessagesService := &gmailtest.MockMessagesService{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockMessagesService := &mocks.MockMessagesService{}
 
 	// Setup expectations
 	mockService.On("GetUsersService").Return(mockUsersService)
@@ -97,9 +97,9 @@ func TestGetMessagesService(t *testing.T) {
 
 func TestGetMessagesService_Integration(t *testing.T) {
 	// Test that the helper correctly chains the service calls
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockMessagesService := &gmailtest.MockMessagesService{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockMessagesService := &mocks.MockMessagesService{}
 
 	mockService.On("GetUsersService").Return(mockUsersService).Once()
 	mockUsersService.On("GetMessagesService").Return(mockMessagesService).Once()
@@ -156,11 +156,12 @@ func TestBatchOperation_ContextCancellation(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 }
+
 // Test helper utilities
 func TestHelpers_ChainedCalls(t *testing.T) {
-	mockService := &gmailtest.MockGmailService{}
-	mockUsersService := &gmailtest.MockUsersService{}
-	mockMessagesService := &gmailtest.MockMessagesService{}
+	mockService := &mocks.MockGmailService{}
+	mockUsersService := &mocks.MockUsersService{}
+	mockMessagesService := &mocks.MockMessagesService{}
 
 	// Setup chain
 	mockService.On("GetUsersService").Return(mockUsersService)

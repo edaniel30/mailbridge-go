@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danielrivera/mailbridge-go/core"
+	"github.com/edaniel30/mailbridge-go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/gmail/v1"
